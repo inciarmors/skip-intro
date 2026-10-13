@@ -1,22 +1,37 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Skip Intro · lab</title>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Skip Intro · Signal Lab</title>
 <style>
-  :root { color-scheme:dark; font:16px/1.6 system-ui,sans-serif; background:#0b0e16; color:#eef1f8; }
-  body { max-width:1000px; padding:40px 24px; margin:auto; }
-  header { color:#b9ff83; font-weight:700; font-size:13px; letter-spacing:2px; }
-  h1 { font-size:clamp(32px,6vw,60px); line-height:1.1; letter-spacing:-2px; margin:32px 0 16px; }
-  p { color:#adb8ce; max-width:730px; } button,input { font:inherit; }
-  button { cursor:pointer; padding:10px 16px; border-radius:8px; border:1px solid #586076; background:#202738; color:#fff; }
-  #player { background:#000; border-radius:16px; overflow:hidden; margin:24px 0; }
+  :root { color-scheme:dark; font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:#070707; color:#f5f5f5; }
+  * { box-sizing:border-box; }
+  body { max-width:1100px; padding:30px 40px 60px; margin:auto; background:radial-gradient(ellipse at 50% 38%,#ffffff08,transparent 60%); }
+  header { display:flex; align-items:center; justify-content:space-between; font-size:10px; letter-spacing:2px; font-weight:600; }
+  .brand { display:flex; align-items:center; gap:10px; } svg { fill:currentColor; width:24px; height:24px; }
+  header a { color:#969696; text-decoration:none; font-size:9px; }
+  .hero { text-align:center; padding:70px 0 35px; }
+  .eyebrow { color:#999; letter-spacing:2.4px; font-size:9px; }
+  h1 { font-size:clamp(35px,6vw,68px); line-height:1.04; letter-spacing:-3px; font-weight:500; margin:20px 0; }
+  .hero p { max-width:440px; margin:20px auto; color:#929292; font-size:13px; }
+  button,select { font:inherit; cursor:pointer; padding:10px 15px; border:1px solid #ffffff26; border-radius:9px; background:linear-gradient(135deg,#ffffff14,#ffffff07); color:#e8e8e8; font-size:11px; }
+  button:hover { background:#ffffff20; } button:disabled { opacity:.5; cursor:wait; }
+  button:focus-visible,select:focus-visible { outline:2px solid white; outline-offset:3px; }
+  option { background:#181818; }
+  #player { position:relative; background:#0b0b0b; border-radius:18px; overflow:hidden; border:1px solid #ffffff1f; box-shadow:0 30px 90px #000; }
   video { width:100%; display:block; aspect-ratio:16/9; }
   #player:fullscreen { display:grid; place-items:center; } #player:fullscreen video { max-height:100vh; }
-  .controls { display:flex; gap:10px; flex-wrap:wrap; }
-  #status { color:#b9ff83; } code { color:#c6e9ae; }
+  #native-intro { position:absolute; bottom:64px; right:24px; height:52px; width:196px; }
+  .controls { display:flex; gap:9px; justify-content:space-between; flex-wrap:wrap; margin-top:17px; }
+  .controls div { display:flex; gap:8px; align-items:center; }
+  .controls label { font-size:10px; color:#999; margin-right:3px; }
+  #status { text-align:center; color:#aaa; font-size:10px; margin:18px 0 0; min-height:17px; }
+  footer { display:flex; justify-content:space-between; gap:20px; color:#737373; border-top:1px solid #ffffff12; margin-top:44px; padding-top:20px; font-size:10px; }
+  footer p { margin:0; max-width:570px; } footer span { white-space:nowrap; }
+  [hidden] { display:none!important; }
+  @media (max-width:650px) { body { padding:24px 18px; } .hero { padding-top:40px; } h1 { letter-spacing:-1.5px; } footer { display:block; } }
 </style></head><body>
-<header>SKIP INTRO / LAB</header><h1>One intro. One click.<br>Back to the story.</h1>
-<p>A local test with no external videos: generate a 16-second clip with an intro from second 3 to second 9. Load the extension in your browser first.</p>
-<button id="generate">1. Generate test video (16 seconds)</button><p id="status" role="status">The clip is generated in your browser. Nothing is uploaded.</p>
-<div id="player"><video controls playsinline muted></video></div>
-<div class="controls"><button id="intro">2. Go to intro</button><button id="chapters">Use chapters</button><button id="manual">Remove chapters · try manual timing</button><button id="fullscreen">Fullscreen</button></div>
-<p>With chapters enabled, “Skip intro” should appear between 0:03 and 0:09 and seek to 0:09. Without chapters, hover over the video and open “Adjust timing”. This clip has no audio: it tests chapter detection and seeking.</p>
+<header><div class="brand"><svg viewBox="0 0 28 28" aria-hidden="true"><path d="M2 5v18l10-9z M12 5v18l10-9z M23 5h3v18h-3z"/></svg>SKIP INTRO</div><a href="https://github.com/inciarmors/skip-intro">OPEN SOURCE ↗</a></header>
+<section class="hero"><div class="eyebrow">AUTOMATIC DETECTION / SIGNAL LAB</div><h1>Nothing between you<br>and the story.</h1><p>No timestamps to set. No video downloads. No AI.<br>Just one button, when the player reveals an intro.</p><button id="generate">Generate test scene</button></section>
+<div id="player"><video controls playsinline muted aria-label="Synthetic test scene"></video><button id="native-intro" hidden>Skip intro</button></div>
+<div class="controls"><div><button id="intro">Go to intro</button><button id="fullscreen">Fullscreen</button></div><div><label for="signal">Test signal</label><select id="signal"><option value="chapters">Chapters</option><option value="native">Player button</option><option value="structured">Structured metadata</option><option value="none">No intro signal</option></select></div></div>
+<p id="status" role="status">Load the extension, then generate a synthetic scene in memory. Nothing is downloaded or saved.</p>
+<footer><p>The scene lasts 16 seconds. Its intro runs from 0:03 to 0:09. With no signal, the extension stays invisible. These lab controls simulate player behavior; they are not extension settings.</p><span>0.2 / AUTOMATIC ONLY</span></footer>
 <script src="demo.js"></script></body></html>

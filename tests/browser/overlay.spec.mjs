@@ -1,7 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-// The media clock is controlled here to exercise edge cases deterministically.
-// Storage is mocked for both browser engines; a separate Chromium smoke test loads the real extension.
+// Controlled media clocks verify signal handling; no commercial media is fetched.
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     const listeners = [];
@@ -22,6 +21,7 @@ test.beforeEach(async ({ page }) => {
   await installVideo(page);
   await page.addScriptTag({ url: "/core.js" });
   await page.addScriptTag({ url: "/content.js" });
+  await page.locator("video").scrollIntoViewIfNeeded();
 });
 
 async function installVideo(page) {
@@ -36,83 +36,91 @@ async function installVideo(page) {
     });
   });
 }
-
 const seek = (page, time) => page.evaluate(t => { document.querySelector("video").currentTime = t; }, time);
-const skip = page => page.getByRole("button", { name: "Skip intro →", exact: true });
+const skip = page => page.locator("skip-intro-overlay").getByRole("button", { name: "Skip intro", exact: true });
 
-test("chapters offer skip only during the intro and seek on click, never automatically", async ({ page }) => {
-  await seek(page, 2);
-  await expect(skip(page)).toBeHidden();
-  await seek(page, 4);
-  await expect(skip(page)).toBeVisible();
-  await expect.poll(() => page.locator("video").evaluate(v => v.currentTime)).toBe(4);
+test("only shows the button within a detected intro and only seeks on click", async ({ page }) => {
+  await seek(page, 2); await expect(skip(page)).toBeHidden();
+  await seek(page, 4); await expect(skip(page)).toBeVisible();
+  expect(await page.locator("video").evaluate(v => v.currentTime)).toBe(4);
   await skip(page).click();
   await expect.poll(() => page.locator("video").evaluate(v => v.currentTime)).toBe(9);
   await expect(skip(page)).toBeHidden();
 });
 
-test("manual intervals persist on reload and cannot leak to another SPA episode", async ({ page }) => {
-  await page.getByRole("button", { name: "Remove chapters" }).click();
-  await page.locator("video").hover();
-  await page.locator("summary").click();
-  await page.getByLabel("Start (seconds)").fill("12");
-  await page.getByLabel("End (seconds)").fill("40");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.locator("skip-intro-overlay #status")).toContainText("saved");
-  await seek(page, 20);
-  await expect(skip(page)).toBeVisible();
-  await page.reload();
-  await installVideo(page);
-  await page.addScriptTag({ url: "/core.js" });
-  await page.addScriptTag({ url: "/content.js" });
-  await seek(page, 20);
+test("no signal means no hover UI, forms, or stored-timing fallback", async ({ page }) => {
+  await page.getByLabel("Test signal").selectOption("none");
+  await page.evaluate(() => browser.storage.local.set({ "intro:legacy": { start: 0, end: 90 } }));
+  await seek(page, 4); await page.locator("video").hover();
+  await expect(skip(page)).toBeHidden();
+  await expect(page.locator("skip-intro-overlay input,skip-intro-overlay form,skip-intro-overlay details")).toHaveCount(0);
+});
+
+test("delegates a visible native intro button and ignores ads or hidden buttons", async ({ page }) => {
+  await page.getByLabel("Test signal").selectOption("native");
+  await seek(page, 4); await expect(skip(page)).toBeVisible();
+  await skip(page).click();
+  await expect.poll(() => page.locator("video").evaluate(v => v.currentTime)).toBe(9);
+  await expect(skip(page)).toBeHidden();
+  await page.locator("#native-intro").evaluate(button => { button.textContent = "Skip ad"; });
+  await seek(page, 4); await expect(skip(page)).toBeHidden();
+  await page.locator("#native-intro").evaluate(button => { button.textContent = "Skip intro"; button.style.opacity = "0"; });
+  await expect(skip(page)).toBeHidden();
+});
+
+test("structured metadata must match the selected media source", async ({ page }) => {
+  await page.getByLabel("Test signal").selectOption("structured");
+  await seek(page, 4); await expect(skip(page)).toBeVisible();
+  await page.locator("#video-metadata").evaluate(script => { const value = JSON.parse(script.textContent); value.contentUrl = "https://media.example/another-episode.webm"; script.textContent = JSON.stringify(value); });
+  await expect(skip(page)).toBeHidden();
+});
+
+test("unseekable ends and the disabled setting hide the button", async ({ page }) => {
+  await seek(page, 4); await expect(skip(page)).toBeVisible();
+  await page.evaluate(() => Object.defineProperty(document.querySelector("video"), "seekable", { configurable: true, get: () => ({ length: 1, start: () => 0, end: () => 5 }) }));
+  await expect(skip(page)).toBeHidden();
+  await page.evaluate(() => browser.storage.local.set({ enabled: false }));
+  await expect(skip(page)).toBeHidden();
+});
+
+test("discovers a player moved into an open shadow root", async ({ page }) => {
+  await page.evaluate(() => {
+    const host = document.createElement("div");
+    const root = host.attachShadow({ mode: "open" });
+    const video = document.querySelector("video");
+    root.append(video); video.style.cssText = "width:900px;height:500px;display:block";
+    document.querySelector("#player").append(host);
+    video.currentTime = 4;
+  });
   await expect(skip(page)).toBeVisible();
   await skip(page).click();
-  await expect.poll(() => page.locator("video").evaluate(v => v.currentTime)).toBe(40);
-  await page.evaluate(() => history.pushState({}, "", "/?episode=2"));
-  await seek(page, 20);
-  await expect(skip(page)).toBeHidden();
+  await expect.poll(() => page.locator("video").evaluate(v => v.currentTime)).toBe(9);
 });
 
-test("unseekable targets are disabled and disabling the extension hides the overlay", async ({ page }) => {
-  await seek(page, 4);
-  await expect(skip(page)).toBeVisible();
-  await page.evaluate(() => Object.defineProperty(document.querySelector("video"), "seekable", { configurable: true, get: () => ({ length: 1, start: () => 0, end: () => 5 }) }));
-  await expect(page.getByRole("button", { name: "Intro · waiting for video…" })).toBeDisabled();
-  await page.evaluate(() => browser.storage.local.set({ enabled: false }));
-  await expect(page.locator("skip-intro-overlay")).toBeHidden();
-});
-
-test("rejects invalid manual ranges and removes saved ranges", async ({ page }) => {
-  await page.getByRole("button", { name: "Remove chapters" }).click();
-  await page.locator("video").hover();
-  await page.locator("summary").click();
-  await page.getByLabel("Start (seconds)").fill("60");
-  await page.getByLabel("End (seconds)").fill("30");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.locator("skip-intro-overlay #status")).toContainText("2–300");
-  await page.getByLabel("Start (seconds)").fill("10");
-  await page.getByRole("button", { name: "Save", exact: true }).click();
-  await seek(page, 20);
-  await expect(skip(page)).toBeVisible();
-  await page.getByRole("button", { name: "Forget", exact: true }).click();
-  await expect(skip(page)).toBeHidden();
-});
-
-test("follows dynamically replaced players and works inside an iframe", async ({ page }) => {
+test("works inside a newly inserted frame and removes stale overlays", async ({ page }) => {
   await page.evaluate(() => {
     document.querySelector("video").remove();
     const frame = document.createElement("iframe"); frame.src = "/?embedded=1";
-    frame.width = "1000"; frame.height = "900"; document.body.prepend(frame);
+    frame.width = "1000"; frame.height = "1100"; document.body.prepend(frame);
   });
-  await expect(page.locator("skip-intro-overlay")).toBeHidden();
+  await expect(skip(page)).toBeHidden();
   const frame = page.frames().find(f => f !== page.mainFrame());
   await frame.waitForSelector("video");
   await installVideo(frame);
   await frame.addScriptTag({ url: "/core.js" });
   await frame.addScriptTag({ url: "/content.js" });
-  await seek(frame, 4);
-  await expect(skip(frame)).toBeVisible();
+  await frame.locator("video").scrollIntoViewIfNeeded();
+  await seek(frame, 4); await expect(skip(frame)).toBeVisible();
   await skip(frame).click();
   await expect.poll(() => frame.locator("video").evaluate(v => v.currentTime)).toBe(9);
+});
+
+test("popup uses the English automatic-only design", async ({ page }) => {
+  await page.goto("/popup.html");
+  await expect(page.getByRole("switch")).toBeChecked();
+  await page.locator("label.toggle").click();
+  await expect(page.locator("#state")).toHaveText("Detection is paused");
+  await page.locator("label.toggle").click();
+  await page.setViewportSize({ width: 352, height: 490 });
+  await page.screenshot({ path: "artifacts/popup.png" });
 });

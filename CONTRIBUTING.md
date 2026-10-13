@@ -1,8 +1,16 @@
 # Contributing
 
-Open an issue with your browser and version, the site URL (without tokens or credentials), player type, expected behavior, and observed behavior. Do not attach protected content, cookies, or signed URLs.
+Keep all project text, interfaces, comments, documentation, and fixtures in English. Detection must remain automatic-only: do not add timing fields or user marking steps.
 
-Before submitting a pull request:
+## Constraints
+
+- No AI models or external recognition services.
+- No extra media downloads, raw media persistence, microphone capture, or tab recording.
+- Audio/visual analysis is allowed only in the browser during normal playback.
+- No bypass of DRM, CORS, authentication, or browser permission checks.
+- No skipping without the user's click.
+
+## Verification
 
 ```sh
 npm ci
@@ -10,6 +18,6 @@ npx playwright install chromium firefox
 npm run check
 ```
 
-For a new detection strategy, add examples with intros, without intros, and with plausible false positives. Keep logic in the pure detection engine where possible. Automatic skipping, network requests, telemetry, and expanded permissions require an explicit rationale in the proposal.
+Add deterministic fixtures for new detection logic, including unrelated content, stale signals, inaccessible ranges, and plausible false positives. Distinguish simulated browser fixtures from real player validation; do not claim universal accuracy from unit tests.
 
-Document the sites actually tested and distinguish simulated tests from real players. Keep all project text, interfaces, comments, documentation, and test fixtures in English. Accessibility improvements are welcome.
+When reporting site behavior, include browser/version, the site domain, expected behavior, and observed behavior. Do not attach protected media, credentials, cookies, or signed stream URLs. Document any runtime limitation openly.

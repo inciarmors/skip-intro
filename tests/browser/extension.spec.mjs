@@ -19,13 +19,14 @@ test("real Chromium extension loads and skips a generated local video", async ({
     const errors = [];
     page.on("pageerror", error => errors.push(error.message));
     await page.goto("http://127.0.0.1:4173");
-    await page.getByRole("button", { name: "1. Generate" }).click();
-    await expect(page.locator("body > #status")).toContainText("Clip ready", { timeout: 40000 });
+    await page.getByRole("button", { name: "Generate test scene" }).click();
+    await expect(page.locator("body > #status")).toContainText("Scene ready", { timeout: 40000 });
     await expect.poll(() => page.locator("video").evaluate(v => Number.isFinite(v.duration)), { timeout: 10000 }).toBe(true);
-    await page.getByRole("button", { name: "2. Go" }).click();
-    const skip = page.getByRole("button", { name: "Skip intro →", exact: true });
+    await page.getByRole("button", { name: "Go to intro" }).click();
+    const skip = page.locator("skip-intro-overlay").getByRole("button", { name: "Skip intro", exact: true });
     await expect(skip).toBeVisible();
     await expect(skip).toBeEnabled();
+    await expect.poll(() => page.locator("video").evaluate(v => v.seeking)).toBe(false);
     await page.screenshot({ path: "artifacts/demo-chromium.png", fullPage: true });
     await skip.click();
     await expect.poll(() => page.locator("video").evaluate(v => v.currentTime)).toBe(9);

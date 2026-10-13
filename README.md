@@ -1,23 +1,35 @@
 # Skip Intro
 
-**Your story, without the wait.** A Chrome and Firefox extension that shows a **Skip intro** button during opening credits and jumps to their end when you click it.
+**Straight to the story.** An automatic-only Chrome and Firefox extension with a minimal, monochrome glass button. It appears during a detected opening and skips it when clicked. There are no timing fields, marking controls, or hover panels.
 
-> **Status: prototype 0.1.0.** Universal audiovisual recognition is the project's goal, not a feature available today. This version uses chapters, explicit metadata, and manual timing. It does not promise compatibility with every streaming service.
+> **0.2.0 / experimental.** Detection uses player signals and deterministic, live audio/visual fingerprints. No AI, no extra video downloads, and no saved media files. Coverage is not universal: unfamiliar openings, inaccessible media, and ambiguous sequences may not be recognized. Recurrence is evidence of repeated content, not proof that it is an intro.
 
-## Available features
+## Detection
 
-- Detects chapters labeled `Intro`, `Opening`, `Opening credits`, `Introduction`, or `Title sequence`.
-- Reads explicit intro timing metadata.
-- Displays a button over the video during the detected intro; never skips automatically.
-- Lets you set start/end times with **Mark start / Mark end** or enter seconds manually.
-- Saves timings locally for each video, without servers, accounts, analytics, or audio/video uploads.
-- Handles dynamically inserted HTML5 players, SPA navigation, and authorized HTTP/HTTPS iframes.
-- Selects the main visible player when several videos are present; supports player-container fullscreen.
-- Includes a popup to disable the extension and clear saved timings.
+The extension tries these sources in order:
 
-## Development installation
+1. **Native player controls.** A visible, enabled, explicitly labeled intro button inside the selected player. The extension forwards your click to that control; it does not invent an end time.
+2. **Timed player data.** Intro chapter cues, metadata cues, explicit timing attributes, and Schema.org intro clips tied to the exact media source.
+3. **Live recurring sequences.** During normal playback, small visual/audio descriptors are compared with earlier episodes of an identifiable series. Once a sufficiently distinctive sequence has recurred across two different episodes, its pattern can identify a subsequent occurrence.
 
-Requires Node.js 22+ and npm. The distributed extension has no runtime dependencies or remote code.
+On a new series without player metadata, the extension must first observe matching openings across episodes. A learned opening typically needs several seconds of matching playback before the button appears. It cannot know the ending of an unseen intro from a single live frame. Silence, black frames, static imagery, pauses, and discontinuous playback are rejected as learning evidence.
+
+The third strategy is an experimental deterministic matcher, not a trained model. Recaps or other repeated opening material may still be misclassified. Player-provided boundaries are preferable whenever available.
+
+## What stays in the browser
+
+- Playback is sampled at most once per media second during the first ten minutes.
+- Each visual sample becomes a 64-bit difference hash from a temporary 9×8 canvas.
+- Accessible audio becomes a compact 32-band spectral descriptor through Web Audio.
+- Raw frames and audio buffers are not persisted, recorded, uploaded, or assembled into video files.
+- Local storage contains the enabled setting and a bounded library of numeric fingerprints with hashed identities. It retains at most twelve series and four sampled episodes/patterns per series.
+- No server, external recognition service, AI model, media fetcher, or download permission is used.
+
+Normal playback still transfers and buffers media through the website's own player. The extension adds no independent video download. See [privacy](docs/PRIVACY.md) and [architecture](docs/ARCHITECTURE.md).
+
+## Installation
+
+Requires Node.js 22+ and npm for development. The packaged extension has no runtime dependencies.
 
 ```sh
 git clone https://github.com/inciarmors/skip-intro.git
@@ -29,42 +41,45 @@ npm run build
 **Chrome 120+**
 
 1. Open `chrome://extensions` and enable **Developer mode**.
-2. Choose **Load unpacked**.
-3. Select the `dist/chrome` folder.
-4. Reload any video pages that are already open.
+2. Choose **Load unpacked** and select `dist/chrome`.
+3. Reload open video pages.
 
 **Firefox 142+ desktop**
 
 1. Open `about:debugging#/runtime/this-firefox`.
-2. Choose **Load Temporary Add-on**.
-3. Select `dist/firefox/manifest.json` and grant the requested site access.
-4. Reload any video pages that are already open. Temporary installation ends when Firefox closes.
+2. Choose **Load Temporary Add-on** and select `dist/firefox/manifest.json`.
+3. Grant the requested site access and reload video pages. Temporary installation ends when Firefox closes.
 
-The extension is not published in the stores yet. Persistent installation in Firefox requires Mozilla signing.
+It is not published in the extension stores. Persistent Firefox installation requires Mozilla signing.
 
-## Try it
+## Use
+
+Enable **Automatic detection** in the popup, then watch normally. When an actionable intro is detected, **Skip intro** appears over the player. Click it to advance; playback is never skipped without your click. No signal means no overlay.
+
+The design follows a black-and-white palette with a frosted white button, dark icon, subtle glass surfaces, and reduced-motion support. All project text and interfaces are in English.
+
+## Limits
+
+- Automatic does not mean universal. Cross-origin media restrictions, protected playback, missing episode identity, or opaque players can prevent learning. Browser audio policies may require a normal user interaction before audio sampling can start.
+- Learning requires a recognizable series/episode title or explicit series metadata. It does not pool unrelated shows under a generic player title.
+- Player APIs are used without bypassing DRM, CORS, authentication, or browser permissions. The extension never replaces the player's audio source.
+- The live matcher currently needs a distinctive repeated sequence lasting 18–240 seconds, a matching run of eight samples, and uninterrupted accessible playback. Very short or substantially edited openings can be missed.
+- The inferred end is conservative: the last confirmed matching sample. It may leave a small part of an opening unskipped. Music or visual repetition alone does not establish semantic certainty.
+- Closed shadow roots, browser-internal pages, native video-element fullscreen, and Picture-in-Picture are unsupported. Open shadow roots and fullscreen player containers are handled.
+- A native player may reject a programmatic forwarded click. Small or hidden videos and unseekable ranges do not receive a button.
+- The requested StreamingCommunity domain is an evaluation target, not a certified integration. Live playback validation is left to the user; see [site notes](docs/SITE-SUPPORT.md).
+
+## Local signal lab
 
 ```sh
 npm run demo
 ```
 
-Open `http://127.0.0.1:4173` with the extension loaded. **Generate test video** creates a local 16-second clip with an intro between seconds 3 and 9. Click **Go to intro**, then **Skip intro**: playback should seek to second 9.
+Open `http://127.0.0.1:4173` with the extension loaded. **Generate test scene** creates a synthetic 16-second clip in memory, with an intro from second 3 to second 9. It never downloads real media or saves a media file.
 
-The lab includes controls to remove chapters, try manual timing, and enter player-container fullscreen. It does not download external videos or test audio recognition.
+The lab can expose chapters, a native button, structured metadata, or no signal. These simulate site behavior; they are not extension settings. It verifies player-signal paths, not the accuracy of live fingerprint recognition on real shows.
 
-On a page without chapters, hover over the video and open **Skip Intro · adjust timing**. Set the start and end of the intro (a 2–300 second range). The timing is reused for that video, not automatically applied to other episodes.
-
-## Known limitations
-
-- Without chapters or metadata, you must set the timing manually. There is no model listening to or watching the intro yet.
-- The player must expose an HTML5 `<video>` element, a finite duration, and a range seekable through `currentTime`. Live streams, opaque players, shadow DOM, and internal browser pages are not supported.
-- DRM and custom players may prevent access or seeking. The extension does not bypass protections, authentication, or subscriptions. Netflix, Prime Video, Disney+, and other commercial services have not been certified.
-- Native `<video>` fullscreen and Picture-in-Picture cannot display this DOM overlay. Container fullscreen is supported.
-- Manual timings are identified by page URL, media source, duration, and player index. Changing signed URLs may require setting the timing again. Different streams with the same page URL, duration, and player index cannot be distinguished: use **Forget** if a site reuses those values.
-- On HTTP pages without Web Crypto, manual timing lasts for the current session only. Embedded players require access to their own domains.
-- Players are scanned every 500 ms in visible tabs. Chapter detection depends on cues actually being available in the player.
-
-## Development and verification
+## Development
 
 ```sh
 npx playwright install chromium firefox
@@ -72,22 +87,17 @@ npm run check
 npm run package
 ```
 
-`check` runs core logic tests, builds both extensions, validates the Firefox manifest, and tests behavior in Chromium and Firefox. Behavioral tests control the media clock and mock storage; an additional test loads the actual extension in Chromium and skips a clip generated in the browser. Firefox add-on installation and commercial players also require manual verification.
+The suite includes pure signal/fingerprint fixtures, controlled browser scenarios, and a synthetic Chromium extension scenario. Synthetic fixtures do not establish real-world recognition accuracy. See the [contribution guide](CONTRIBUTING.md).
 
-`package` creates `artifacts/skip-intro-chrome.zip` and `artifacts/skip-intro-firefox.zip` using the `zip` command. The Firefox archive is unsigned. Builds and artifacts are excluded from Git and attached to successful CI runs.
+`package` writes `artifacts/skip-intro-chrome.zip` and `artifacts/skip-intro-firefox.zip` using `zip`. Firefox packages are unsigned. Generated files are excluded from Git.
 
 ```text
-extension/       Content script, detection engine, popup, and base manifest
-scripts/         Browser builds, packaging, and local lab server
-demo/            Locally generated synthetic clip with chapters
-tests/           Core logic and browser behavior tests
-docs/            Architecture, roadmap, and privacy
+extension/core.js         Validated player signals and seek boundaries
+extension/fingerprint.js  Deterministic sequence matcher
+extension/analysis.js     In-browser sampling and bounded fingerprint storage
+extension/content.js      Player discovery, automatic button, and click handling
+extension/popup.*         On/off control and monochrome glass interface
+demo/                     Synthetic signal lab
 ```
 
-## Toward automatic recognition
-
-The [roadmap](docs/ROADMAP.md) covers player adapters, series/episode identification, and audio fingerprint comparisons across episodes. Precision, false positives, processing cost, and access restrictions must be measured before claiming universal recognition.
-
-See the [architecture](docs/ARCHITECTURE.md), [privacy policy](docs/PRIVACY.md), and [contribution guide](CONTRIBUTING.md).
-
-Licensed under [MIT](LICENSE).
+[Roadmap](docs/ROADMAP.md) · [Architecture](docs/ARCHITECTURE.md) · [Privacy](docs/PRIVACY.md) · [MIT license](LICENSE)

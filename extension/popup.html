@@ -2,15 +2,20 @@
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Skip Intro</title><link rel="stylesheet" href="popup.css"></head>
 <body>
-  <header><span class="logo" aria-hidden="true">▸▸</span><span>SKIP INTRO</span><small>0.1 · preview</small></header>
-  <h1>Your story,<br>without the wait.</h1>
-  <p>When an intro is detected, Skip Intro appears on the video. One click takes you back to the story.</p>
-  <label class="toggle"><span>Enable Skip Intro</span><input id="enabled" type="checkbox" checked></label>
-  <section><h2>Intro not detected?</h2><p>Hover over the video and open <strong>Adjust timing</strong>. Mark the start and end, or enter the times in seconds.</p></section>
-  <p class="note">This preview uses chapters, metadata, and manual timing. It does not recognize intros from audio or images yet.</p>
-  <button id="clear">Clear saved timings</button>
-  <p id="status" role="status" aria-live="polite"></p>
-  <footer>Everything stays local. No account or telemetry.</footer>
+  <header><svg viewBox="0 0 28 28" aria-hidden="true"><path d="M2 5v18l10-9z M12 5v18l10-9z M23 5h3v18h-3z"/></svg><span>SKIP INTRO</span><small>02</small></header>
+  <main>
+    <p class="eyebrow">LESS WAITING. MORE WATCHING.</p>
+    <h1>Straight to<br>the story.</h1>
+    <p class="intro">The button appears when an intro is detected. You take it from there.</p>
+    <label class="glass toggle" for="enabled">
+      <span><strong>Automatic detection</strong><small id="state">Checking settings…</small></span>
+      <input id="enabled" type="checkbox" role="switch" disabled>
+      <span class="switch" aria-hidden="true"></span>
+    </label>
+    <p class="coverage">Uses player signals and learns recurring openings during playback. A new intro may need multiple episodes. Site support varies.</p>
+    <p id="status" role="status" aria-live="polite"></p>
+  </main>
+  <footer><span>No downloads</span><i></i><span>No AI</span><i></i><span>No setup</span></footer>
   <script src="popup.js"></script>
 </body>
 </html>
