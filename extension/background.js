@@ -58,7 +58,7 @@ async function fetchProvider(provider, episode, durationMs, key, token) {
     const text = await response.text();
     if (!active(token)) return disabled();
     if (text.length > 100000) throw new Error("Unexpected response size");
-    const intros = provider.parse(JSON.parse(text), episode);
+    const intros = provider.parse(JSON.parse(text), episode, durationMs);
     const value = intros.length ? { ...result("ready"), intros } : result("not-found");
     return remember(key, value, intros.length ? 6 * 3600000 : 15 * 60000, token);
   } catch {
@@ -67,8 +67,8 @@ async function fetchProvider(provider, episode, durationMs, key, token) {
 }
 async function lookupProvider(provider, episode, durationMs, token) {
   if (!active(token)) return disabled();
-  if (provider.supports && !provider.supports(episode)) return { status: "unsupported", provider: provider.id };
-  const key = `${provider.id}:${episodes.key(episode)}:${provider.id === "theintrodb" ? `${episode.tmdbId || 0}:${durationMs || 0}` : "0"}`;
+  if (provider.supports && !provider.supports(episode, durationMs)) return { status: "unsupported", provider: provider.id };
+  const key = `${provider.id}:${episodes.key(episode)}:${provider.cacheKey?.(episode, durationMs) || "0"}`;
   const entry = cache.get(key);
   if (entry?.expires > Date.now()) return entry.value;
   if (Date.now() < (cooldowns[provider.id] || 0)) return { status: "rate-limited", provider: provider.id };
@@ -110,7 +110,7 @@ async function handle(message, sender) {
   const context = await pageContext(sender.tab.id);
   if (!active(token)) return disabled();
   const top = episodes.normalize(context?.episode), local = episodes.normalize(message.episode);
-  const conflict = top && local && (episodes.key(top) !== episodes.key(local) || top.tmdbId && local.tmdbId && top.tmdbId !== local.tmdbId);
+  const conflict = top && local && (episodes.key(top) !== episodes.key(local) || top.tmdbId && local.tmdbId && top.tmdbId !== local.tmdbId || top.malId && local.malId && top.malId !== local.malId);
   const episode = conflict ? null : top && local ? { ...local, ...top } : local || top;
   const durationMs = Number.isSafeInteger(message.durationMs) && message.durationMs > 0 && message.durationMs <= 86400000 ? message.durationMs : null;
   let result = episode ? { ...await lookup(episode, durationMs, token), episode } : { status: "missing-identity" };
@@ -118,7 +118,8 @@ async function handle(message, sender) {
   // A slow response must not apply the previous episode after top-frame navigation.
   if (top && episode) {
     const latest = await pageContext(sender.tab.id);
-    if (latest?.route !== context?.route || episodes.key(episodes.normalize(latest?.episode)) !== episodes.key(top)) result = { status: "waiting" };
+    const latestEpisode = episodes.normalize(latest?.episode);
+    if (latest?.route !== context?.route || episodes.key(latestEpisode) !== episodes.key(top) || latestEpisode?.malId !== top.malId || latestEpisode?.tmdbId !== top.tmdbId) result = { status: "waiting" };
   }
   if (!active(token)) return disabled();
   statuses.set(sender.tab.id, { at: Date.now(), route: context?.route || sender.tab.url, value: result });

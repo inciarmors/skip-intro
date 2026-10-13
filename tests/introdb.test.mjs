@@ -55,3 +55,46 @@ test("TheIntroDB validates canonical identity and keeps multiple bounded intro s
     { ...data, intro: [{ start_ms: "0", end_ms: 16000 }] }
   ]) assert.throws(() => parse(bad, identity));
 });
+
+test("SkipDB accepts exact boundaries, not estimates, uncertain cuts, or no-intro sentinels", () => {
+  const parse = globalThis.SkipIntroDB.parseSkipDB;
+  const intro = { start_ms: 42000, end_ms: 75000, match: "exact", adjusted: false };
+  const data = { imdb_id: episode.imdbId, season: 1, episode: 2, segments: { intro } };
+  assert.deepEqual(parse(data, episode, 2600000), [{ start: 42, end: 75, source: "skipdb" }]);
+  assert.deepEqual(parse({ ...data, segments: { intro: null }, intro_length_estimate_ms: 33000 }, episode), []);
+  for (const changes of [
+    { start_ms: 0, end_ms: 0 }, { match: "out-of-range" }, { match: "shifted" }, { adjusted: true }
+  ]) assert.deepEqual(parse({ ...data, segments: { intro: { ...intro, ...changes } } }, episode), []);
+  assert.deepEqual(parse(data, episode, 60000), []);
+  assert.throws(() => parse({ ...data, episode: 3 }, episode));
+  assert.throws(() => parse({ ...data, imdb_id: "tt9999999" }, episode));
+  assert.throws(() => parse({ ...data, segments: { intro: { ...intro, start_ms: "42000" } } }, episode));
+  assert.throws(() => parse({ ...data, segments: {} }, episode));
+});
+
+test("anime identity belongs to an explicit MAL season and rejects conflicting metadata", () => {
+  const node = { "@type": "TVEpisode", episodeNumber: 1, partOfSeason: { seasonNumber: 2, sameAs: "https://myanimelist.net/anime/9253/" } };
+  assert.deepEqual(fromStructuredData(node), { malId: 9253, season: 2, episode: 1 });
+  const seriesOnly = { ...node, partOfSeason: { seasonNumber: 2 }, partOfSeries: { sameAs: "https://myanimelist.net/anime/9253/" } };
+  assert.equal(fromStructuredData(seriesOnly), null);
+  assert.deepEqual(fromStructuredData({ ...seriesOnly, partOfSeason: { seasonNumber: 1 } }), { malId: 9253, season: 1, episode: 1 });
+  assert.equal(fromStructuredData({ ...node, partOfSeason: { seasonNumber: 2, sameAs: "https://myanimelist.net.evil.example/anime/9253/" } }), null);
+  assert.equal(fromStructuredData([node, { ...node, episodeNumber: 2 }]), null);
+  const withImdb = { ...node, partOfSeries: { sameAs: "https://imdb.com/title/tt1196946/" } };
+  const noMal = { ...withImdb, partOfSeason: { seasonNumber: 2 } };
+  const conflicting = { ...withImdb, partOfSeason: { seasonNumber: 2, sameAs: "https://myanimelist.net/anime/1/" } };
+  assert.equal(fromStructuredData([noMal, withImdb, conflicting]), null);
+});
+
+test("AniSkip preserves seconds and requires an opening with a matching playback duration", () => {
+  const parse = globalThis.SkipIntroDB.parseAniSkip;
+  const item = { skipType: "op", interval: { startTime: 638.489, endTime: 728.489 }, episodeLength: 1418.624 };
+  const data = { found: true, results: [item] };
+  assert.deepEqual(parse(data, episode, 1418624), [{ start: 638.489, end: 728.489, source: "aniskip" }]);
+  assert.deepEqual(parse(data, episode, 1450000), []);
+  assert.deepEqual(parse(data, episode), []);
+  assert.deepEqual(parse({ found: false }, episode, 1418624), []);
+  assert.deepEqual(parse({ ...data, results: ["mixed-op", "ed", "recap"].map(skipType => ({ ...item, skipType })) }, episode, 1418624), []);
+  assert.throws(() => parse({ ...data, results: [{ ...item, interval: { startTime: -1, endTime: 90 } }] }, episode, 1418624));
+  assert.throws(() => parse({ results: [] }, episode, 1418624));
+});

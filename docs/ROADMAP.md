@@ -41,3 +41,12 @@ Universal first-encounter detection is not promised. If a player supplies no bou
 - [x] Free TheIntroDB fallback with canonical TMDB and release-duration hints when available.
 - [x] Independent catalog caches and rate-limit cooldowns; show the successful provider.
 - [ ] Add anime-specific providers only with reliable external-ID and episode mappings.
+
+## 0.5 — Additional free catalogs
+
+- [x] SkipDB fallback with explicit episode and release validation.
+- [x] AniSkip opening lookup for explicit MyAnimeList season/cour metadata.
+- [x] Provider-specific cache keys, attribution, and privacy disclosures.
+- [x] Document unavailable sources and identity requirements.
+- [ ] Measure real playback coverage and false positives across a representative episode set.
+- [ ] Add verified anime site adapters and episode mappings where metadata is insufficient.

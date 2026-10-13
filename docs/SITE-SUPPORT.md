@@ -27,10 +27,10 @@ Explicit Schema.org `TVEpisode` data is supported when it includes the series IM
 
 ## Catalog fallback
 
-IntroDB is queried first. TheIntroDB is queried only when needed; both reads are anonymous and have rate limits. TheIntroDB has public open-source integration repositories, but unrestricted database redistribution has not been established. Skip Intro uses individual API calls only.
+IntroDB is queried first. TheIntroDB is queried only when needed; all supported reads are anonymous and have rate limits. TheIntroDB has public open-source integration repositories, but unrestricted database redistribution has not been established. Skip Intro uses individual API calls only.
 
 A read-only TheIntroDB API lookup on October 13, 2026 returned an intro for Breaking Bad S1E1 (TMDB 1396): 228.664–246.143 seconds. IntroDB had returned no intro for that episode during the earlier inspection. This demonstrates a complementary catalog entry, not verified playback alignment or a measured coverage percentage.
 
 The Mentalist S1E1 still had no intro in the inspected TheIntroDB response. A fallback cannot create entries missing from both catalogs.
 
-AniSkip is a possible future anime-specific provider, but requires a trustworthy MyAnimeList ID and anime episode numbering. It is not queried by this release; IMDb season/episode numbers are not guessed into that scheme.
+Version 0.5 adds SkipDB after TheIntroDB and AniSkip for explicit MyAnimeList identities. The Mentalist S1E1 also had no SkipDB intro during the October 13 inspection. AniSkip returned an opening for MyAnimeList 9253 episode 1, but that response alone does not verify any streaming site. The StreamingCommunity adapter does not currently expose a MyAnimeList ID, so AniSkip is not used there. See [catalog integration requirements](CATALOGS.md).

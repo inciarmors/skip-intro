@@ -6,9 +6,9 @@ const sources = await Promise.all(["episode.js", "introdb.js", "background.js"].
 const episode = { imdbId: "tt1196946", season: 1, episode: 2 };
 const valid = { imdb_id: episode.imdbId, media_type: "tv", is_movie: false, season: 1, episode: 2, intro: { start_ms: 0, end_ms: 16000 } };
 const secondary = { tmdb_id: 5920, type: "tv", season: 1, episode: 2, intro: [{ start_ms: null, end_ms: 16000 }] };
-function harness(primary = { data: valid }, fallback = { status: 404 }) {
+function harness(primary = { data: valid }, fallback = { status: 404 }, skipdb = { status: 404 }, aniskip = { status: 404 }) {
   let listener, storageListener;
-  const state = { episode, enabled: true, calls: [], session: {}, primary, fallback };
+  const state = { episode, enabled: true, calls: [], session: {}, primary, fallback, skipdb, aniskip };
   const browser = {
     runtime: { id: "extension", onMessage: { addListener(fn) { listener = fn; } } },
     storage: { local: { get: async () => ({ enabled: state.enabled }) }, session: { get: async () => state.session, set: async value => Object.assign(state.session, value) }, onChanged: { addListener(fn) { storageListener = fn; } } },
@@ -16,7 +16,8 @@ function harness(primary = { data: valid }, fallback = { status: 404 }) {
   };
   const context = vm.createContext({ browser, URL, URLSearchParams, AbortController, setTimeout, clearTimeout, fetch: async (url, options) => {
     state.calls.push({ url, options });
-    const config = new URL(url).hostname === "api.introdb.app" ? state.primary : state.fallback;
+    const config = { "api.introdb.app": state.primary, "api.theintrodb.org": state.fallback, "api.skipdb.tv": state.skipdb, "api.aniskip.com": state.aniskip }[new URL(url).hostname];
+    assert.ok(config, "Only known catalog hosts may be contacted");
     if (config.wait) await config.wait(options.signal);
     const status = config.status || 200;
     return { ok: status === 200, status, headers: { get: name => name === "Retry-After" ? "120" : null }, text: async () => JSON.stringify(config.data) };
@@ -79,7 +80,7 @@ test("catalog rate limits are independent and a working fallback is still used",
   state.episode = { ...episode, episode: 3 };
   state.fallback = { status: 404 };
   assert.equal((await state.lookup()).status, "rate-limited");
-  assert.equal(state.calls.length, 3);
+  assert.equal(state.calls.length, 4);
   assert.ok(state.session.catalogCooldowns.introdb > Date.now());
 });
 
@@ -87,7 +88,7 @@ test("no catalog has an intro and malformed responses never become timing ranges
   const missing = harness({ data: { ...valid, intro: null } });
   assert.equal((await missing.lookup()).status, "not-found");
   await missing.lookup();
-  assert.equal(missing.calls.length, 2);
+  assert.equal(missing.calls.length, 3);
   const wrong = harness({ data: { ...valid, episode: 3 } });
   assert.equal((await wrong.lookup()).status, "unavailable");
 });
@@ -109,4 +110,71 @@ test("switching OFF aborts a pending request, prevents fallback, and rejects its
   state.setEnabled(true);
   assert.equal((await state.lookup()).status, "ready");
   assert.equal(state.calls.length, 2);
+});
+
+test("SkipDB is a third fallback with duration-aware caching and no timestamp adjustment", async () => {
+  const data = { imdb_id: episode.imdbId, season: 1, episode: 2, segments: { intro: { start_ms: 42000, end_ms: 75000, match: "exact", adjusted: false } } };
+  const state = harness({ status: 404 }, { status: 404 }, { data });
+  const result = await state.lookup(undefined, 2600500);
+  assert.equal(result.provider, "skipdb");
+  assert.deepEqual(result.intros, [{ start: 42, end: 75, source: "skipdb" }]);
+  assert.deepEqual(result.attempts.map(item => item.provider), ["introdb", "theintrodb", "skipdb"]);
+  const url = new URL(state.calls[2].url);
+  assert.equal(url.searchParams.get("duration"), "2600.5");
+  assert.equal(url.searchParams.get("adjust"), "none");
+  assert.equal(url.searchParams.get("type"), "intro");
+  await state.lookup(undefined, 2600500);
+  assert.equal(state.calls.length, 3);
+  await state.lookup(undefined, 2700000);
+  assert.equal(state.calls.length, 5);
+});
+
+test("MAL-only episodes query only AniSkip, and missing duration prevents the request", async () => {
+  const state = harness();
+  state.episode = { malId: 9253, season: 1, episode: 1 };
+  state.aniskip = { data: { found: true, results: [{ skipType: "op", interval: { startTime: 638.489, endTime: 728.489 }, episodeLength: 1418.624 }] } };
+  await state.lookup();
+  assert.equal(state.calls.length, 0);
+  const result = await state.lookup(undefined, 1418624);
+  assert.equal(result.provider, "aniskip");
+  assert.equal(state.calls.length, 1);
+  assert.equal(state.calls[0].url, "https://api.aniskip.com/v2/skip-times/9253/1?types=op&episodeLength=1418.624");
+  await state.lookup(undefined, 1418624);
+  assert.equal(state.calls.length, 1);
+});
+
+test("an unavailable SkipDB still allows an explicit anime fallback", async () => {
+  const state = harness({ status: 404 }, { status: 429 }, { status: 503 }, { data: { found: true, results: [{ skipType: "op", interval: { startTime: 42, endTime: 75 }, episodeLength: 1500 }] } });
+  state.episode = { ...episode, malId: 9253 };
+  assert.equal((await state.lookup(undefined, 1500000)).provider, "aniskip");
+  assert.equal(state.calls.length, 4);
+});
+
+test("OFF while SkipDB is pending aborts it and never starts AniSkip", async () => {
+  let entered, release;
+  const started = new Promise(resolve => { entered = resolve; });
+  const waiting = new Promise(resolve => { release = resolve; });
+  const state = harness({ status: 404 }, { status: 404 }, { status: 404, wait: async signal => { entered(signal); await waiting; } });
+  state.episode = { ...episode, malId: 9253 };
+  const request = state.lookup(undefined, 1500000);
+  const signal = await started;
+  state.setEnabled(false);
+  assert.equal(signal.aborted, true);
+  release();
+  assert.equal((await request).status, "disabled");
+  assert.equal(state.calls.length, 3);
+  assert.equal(state.session.catalogCache.length, 2);
+});
+
+test("a changed MAL mapping invalidates a late result even when the IMDb episode is unchanged", async () => {
+  let entered, release;
+  const started = new Promise(resolve => { entered = resolve; });
+  const waiting = new Promise(resolve => { release = resolve; });
+  const state = harness({ data: valid, wait: async () => { entered(); await waiting; } });
+  state.episode = { ...episode, malId: 9253 };
+  const request = state.lookup(undefined, 1500000);
+  await started;
+  state.episode = { ...episode, malId: 1 };
+  release();
+  assert.equal((await request).status, "waiting");
 });
