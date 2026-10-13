@@ -2,7 +2,7 @@
 
 **Straight to the story.** An automatic-only Chrome and Firefox extension with a minimal, monochrome glass button. It appears during a detected opening and skips it when clicked. There are no timing fields, marking controls, or hover panels.
 
-> **0.3.0 / experimental.** Detection uses the free IntroDB API, player signals, and deterministic live audio/visual fingerprints. No AI, no extra video downloads, and no saved media files. Coverage is not universal: unfamiliar openings, inaccessible media, and ambiguous sequences may not be recognized. Recurrence is evidence of repeated content, not proof that it is an intro.
+> **0.4.0 / experimental.** Detection uses free IntroDB and TheIntroDB APIs, player signals, and deterministic live audio/visual fingerprints. No AI, no extra video downloads, and no saved media files. Coverage is not universal: unfamiliar openings, inaccessible media, and ambiguous sequences may not be recognized. Recurrence is evidence of repeated content, not proof that it is an intro.
 
 ## Detection
 
@@ -10,10 +10,10 @@ The extension tries these sources in order:
 
 1. **Native player controls.** A visible, enabled, explicitly labeled intro button inside the selected player. The extension forwards your click to that control; it does not invent an end time.
 2. **Timed player data.** Intro chapter cues, metadata cues, explicit timing attributes, and Schema.org intro clips tied to the exact media source.
-3. **IntroDB timestamps.** Explicit page metadata identifies the IMDb series, season, and episode. The background script calls the public `/segments` API without an account or API key. Only an `intro` segment is accepted; credits and recaps are never substituted.
+3. **Catalog timestamps.** Explicit page metadata identifies the IMDb series, season, and episode, plus TMDB when available. The background checks IntroDB first, then TheIntroDB when the primary catalog has no intro or is temporarily unavailable. Both public APIs work without an account or API key. Only intro segments are accepted; credits and recaps are never substituted. The popup names the provider that supplied the timing.
 4. **Live recurring sequences.** During normal playback, small visual/audio descriptors are compared with earlier episodes of an identifiable series. Once a sufficiently distinctive sequence has recurred across two different episodes, its pattern can identify a subsequent occurrence.
 
-On a new series without player metadata or an IntroDB result, the extension must first observe matching openings across episodes. A learned opening typically needs several seconds of matching playback before the button appears. It cannot know the ending of an unseen intro from a single live frame. Silence, black frames, static imagery, pauses, and discontinuous playback are rejected as learning evidence.
+On a new series without player metadata or a catalog result, the extension must first observe matching openings across episodes. A learned opening typically needs several seconds of matching playback before the button appears. It cannot know the ending of an unseen intro from a single live frame. Silence, black frames, static imagery, pauses, and discontinuous playback are rejected as learning evidence.
 
 The fourth strategy is an experimental deterministic matcher, not a trained model. Recaps or other repeated opening material may still be misclassified. Player-provided boundaries are preferable whenever available.
 
@@ -24,8 +24,8 @@ The fourth strategy is an experimental deterministic matcher, not a trained mode
 - Accessible audio becomes a compact 32-band spectral descriptor through Web Audio.
 - Raw frames and audio buffers are not persisted, recorded, uploaded, or assembled into video files.
 - Local storage contains the enabled setting and a bounded library of numeric fingerprints with hashed identities. It retains at most twelve series and four sampled episodes/patterns per series.
-- IntroDB receives only the IMDb series ID, season, and episode through HTTPS. No site URL, title, cookies, fingerprint, or media is sent. The service also sees the normal network connection information, including your IP address.
-- A temporary browser-session cache holds at most 100 episode results: successful lookups for six hours, missing intros for fifteen minutes, and failures for thirty seconds. It is cleared when the browser session ends. There is no database replication or bulk fetching.
+- IntroDB receives the IMDb series ID, season, and episode through HTTPS. TheIntroDB receives TMDB (or IMDb), season, episode, and video duration for release matching, only when fallback is needed. No site URL, title, cookies, fingerprint, or media is sent. Each contacted service also sees the normal network connection information, including your IP address.
+- A temporary browser-session cache holds at most 100 provider/episode results: successful lookups for six hours, missing intros for fifteen minutes, and failures for thirty seconds. It is cleared when the browser session ends. There is no database replication or bulk fetching.
 - No custom backend, AI model, media fetcher, or download permission is used.
 
 Normal playback still transfers and buffers media through the website's own player. The extension adds no independent video download. See [privacy](docs/PRIVACY.md) and [architecture](docs/ARCHITECTURE.md).
@@ -57,9 +57,17 @@ It is not published in the extension stores. Persistent Firefox installation req
 
 ## Use
 
-Enable **Automatic detection** in the popup, then watch normally. When an actionable intro is detected, **Skip intro** appears over the player. Click it to advance; playback is never skipped without your click. No signal means no overlay. The popup reports missing episode identity, missing IntroDB timings, temporary API failures, or a timing ready to use. After updating, reload the extension and the video page.
+Enable **Automatic detection** in the popup, then watch normally. When an actionable intro is detected, **Skip intro** appears over the player. Click it to advance; playback is never skipped without your click. No signal means no overlay. Switching OFF cancels API requests, stops sampling and page polling, disconnects player observers, and removes the button. Switching ON restarts detection without a page reload. The popup reports missing episode identity, missing catalog timings, temporary API failures, or a timing ready to use. After updating, reload the extension and the video page.
 
 The design follows a black-and-white palette with a frosted white button, dark icon, subtle glass surfaces, and reduced-motion support. All project text and interfaces are in English.
+
+## Background lifecycle
+
+Chrome runs a Manifest V3 service worker; Firefox runs a non-persistent event page (`persistent: false`). The browser suspends these contexts when idle. Being listed in a debug screen does not mean the extension is continuously analysing video.
+
+OFF stops active extension work. The small settings/message listeners remain registered so ON can work again; the browser controls unloading the background context. To fully unload the add-on, disable it through the browser's extension manager. Keeping its debugger open may keep a background context alive.
+
+The manifest includes PNG icons at 16, 32, 48, 96, and 128 pixels, generated from the existing skip glyph. To regenerate the committed assets, run `python3 scripts/generate-icons.py`.
 
 ## Limits
 
@@ -71,7 +79,7 @@ The design follows a black-and-white palette with a frosted white button, dark i
 - Closed shadow roots, browser-internal pages, native video-element fullscreen, and Picture-in-Picture are unsupported. Open shadow roots and fullscreen player containers are handled.
 - A native player may reject a programmatic forwarded click. Small or hidden videos and unseekable ranges do not receive a button.
 - StreamingCommunity watch-page metadata has an adapter for its observed `Titles/Watch` format. Other sites need explicit Schema.org `TVEpisode` metadata containing the series IMDb ID and episode numbers. A title alone is not enough.
-- IntroDB coverage and timing accuracy vary by episode and edition. The extension uses the returned boundaries without assuming that different cuts share the same timing.
+- Catalog coverage and timing accuracy vary by episode and edition. TheIntroDB uses the player duration as a release-selection hint; it may return its most popular version if no matching release exists. The extension uses the returned boundaries without assuming that different cuts share the same timing.
 - The requested StreamingCommunity domain is an evaluation target, not a certified integration. Live playback validation is left to the user; see [site notes](docs/SITE-SUPPORT.md).
 
 ## Local signal lab
@@ -99,16 +107,17 @@ The suite includes pure signal/fingerprint fixtures, controlled browser scenario
 ```text
 extension/core.js         Validated player signals and seek boundaries
 extension/episode.js      Explicit episode metadata extraction
-extension/introdb.js      IntroDB response validation
-extension/background.js   Free API requests, session cache, and frame context
+extension/introdb.js      IntroDB and TheIntroDB provider contracts
+extension/background.js   Free API fallback, cancellation, and session cache
 extension/catalog.js      Current player and catalog result binding
 extension/fingerprint.js  Deterministic sequence matcher
 extension/analysis.js     In-browser sampling and bounded fingerprint storage
 extension/content.js      Player discovery, automatic button, and click handling
-extension/popup.*         On/off control and monochrome glass interface
+extension/popup.*         On/off control, catalog diagnostics, and glass interface
+extension/icons/         Skip glyph icons for toolbar and extension management
 demo/                     Synthetic signal lab
 ```
 
-Intro data provided by [IntroDB](https://introdb.app). API documentation: [public segment endpoints](https://introdb.app/docs/api).
+Intro data provided by [IntroDB](https://introdb.app) and [TheIntroDB](https://theintrodb.org). References: [IntroDB API](https://introdb.app/docs/api), [TheIntroDB API contract](https://theintrodb.org/openapi.yaml). Public API access and open-source integrations do not imply an unrestricted license to replicate either database.
 
 [Roadmap](docs/ROADMAP.md) · [Architecture](docs/ARCHITECTURE.md) · [Privacy](docs/PRIVACY.md) · [MIT license](LICENSE)

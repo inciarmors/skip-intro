@@ -1,8 +1,8 @@
 {
   "name": "skip-intro",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
-  "description": "Automatic intro skipping with free IntroDB timestamps and live browser signals. No video downloads or AI.",
+  "description": "Automatic intro skipping with free catalog timestamps and live browser signals. No video downloads or AI.",
   "type": "module",
   "license": "MIT",
   "engines": {

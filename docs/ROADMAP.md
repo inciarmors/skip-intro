@@ -31,3 +31,13 @@ Universal first-encounter detection is not promised. If a player supplies no bou
 - [x] Bounded browser-session caching, request coalescing, timeout, and rate-limit handling.
 - [x] Popup lookup diagnostics and updated metadata-transmission disclosure.
 - [ ] User verification of actual playback and timing alignment across episode editions.
+
+## 0.4 — Idle OFF, icons, and fallback
+
+- [x] Stop polling, observers, local sampling, and API requests when switched OFF.
+- [x] Ignore late replies and prevent fallback requests after cancellation.
+- [x] Explicit Firefox event-page lifecycle and browser-managed Chrome service worker.
+- [x] Toolbar/manager icons based on the existing skip glyph, including debug builds.
+- [x] Free TheIntroDB fallback with canonical TMDB and release-duration hints when available.
+- [x] Independent catalog caches and rate-limit cooldowns; show the successful provider.
+- [ ] Add anime-specific providers only with reliable external-ID and episode mappings.

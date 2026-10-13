@@ -124,3 +124,20 @@ test("popup uses the English automatic-only design", async ({ page }) => {
   await page.setViewportSize({ width: 352, height: 490 });
   await page.screenshot({ path: "artifacts/popup.png" });
 });
+
+test("OFF removes the overlay and ON rediscovers the current player without a reload", async ({ page }) => {
+  await seek(page, 4);
+  await expect(skip(page)).toBeVisible();
+  await page.evaluate(() => browser.storage.local.set({ enabled: false }));
+  await expect(page.locator("skip-intro-overlay")).toHaveCount(0);
+  await page.evaluate(() => {
+    document.body.append(document.createElement("aside"));
+    document.querySelector("video").dispatchEvent(new Event("loadedmetadata"));
+    window.dispatchEvent(new Event("resize"));
+  });
+  await expect(page.locator("skip-intro-overlay")).toHaveCount(0);
+  await page.evaluate(() => browser.storage.local.set({ enabled: true }));
+  await expect(skip(page)).toBeVisible();
+  await skip(page).click();
+  await expect.poll(() => page.locator("video").evaluate(v => v.currentTime)).toBe(9);
+});

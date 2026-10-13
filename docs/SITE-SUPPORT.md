@@ -4,7 +4,7 @@
 
 Target supplied by the user: `https://streamingcommunityz.shiksha/`.
 
-Read-only HTML inspection on October 13, 2026 found a `Titles/Watch` Inertia page with explicit IMDb series and episode metadata. Version 0.3 reads `props.title.imdb_id`, `props.episode.number`, and `props.episode.season.number`. Embedded frames obtain the watch-page identity through extension messaging. An adapter is included for this observed shape; playback compatibility has not been verified.
+Read-only HTML inspection on October 13, 2026 found a `Titles/Watch` Inertia page with explicit IMDb series and episode metadata. Version 0.4 reads `props.title.imdb_id`, `props.title.tmdb_id`, `props.episode.number`, and `props.episode.season.number`. Embedded frames obtain the watch-page identity through extension messaging. An adapter is included for this observed shape; playback compatibility has not been verified.
 
 The free IntroDB API returned these catalog results during development:
 
@@ -20,7 +20,17 @@ Explicit Schema.org `TVEpisode` data is supported when it includes the series IM
 ## User evaluation
 
 - Reload the extension and watch page after upgrading; allow site and player-frame access.
-- Open the popup while the video is visible to see IntroDB lookup status.
+- Open the popup while the video is visible to see catalog lookup status and the timing provider.
 - Missing timing means the API has no intro entry for that episode, not that an outro should be skipped instead.
 - Confirm the button appears only within the actual opening and its destination does not cut into the episode.
 - Record misses or incorrect boundaries without sharing media files, cookies, signed URLs, or credentials.
+
+## Catalog fallback
+
+IntroDB is queried first. TheIntroDB is queried only when needed; both reads are anonymous and have rate limits. TheIntroDB has public open-source integration repositories, but unrestricted database redistribution has not been established. Skip Intro uses individual API calls only.
+
+A read-only TheIntroDB API lookup on October 13, 2026 returned an intro for Breaking Bad S1E1 (TMDB 1396): 228.664–246.143 seconds. IntroDB had returned no intro for that episode during the earlier inspection. This demonstrates a complementary catalog entry, not verified playback alignment or a measured coverage percentage.
+
+The Mentalist S1E1 still had no intro in the inspected TheIntroDB response. A fallback cannot create entries missing from both catalogs.
+
+AniSkip is a possible future anime-specific provider, but requires a trustworthy MyAnimeList ID and anime episode numbering. It is not queried by this release; IMDb season/episode numbers are not guessed into that scheme.

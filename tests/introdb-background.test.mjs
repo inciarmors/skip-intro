@@ -4,31 +4,36 @@ import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 const sources = await Promise.all(["episode.js", "introdb.js", "background.js"].map(name => readFile(new URL(`../extension/${name}`, import.meta.url), "utf8")));
 const episode = { imdbId: "tt1196946", season: 1, episode: 2 };
-function harness(response, status = 200) {
-  let listener;
-  const state = { episode, enabled: true, calls: [], session: {} };
-  const event = { addListener() {} };
+const valid = { imdb_id: episode.imdbId, media_type: "tv", is_movie: false, season: 1, episode: 2, intro: { start_ms: 0, end_ms: 16000 } };
+const secondary = { tmdb_id: 5920, type: "tv", season: 1, episode: 2, intro: [{ start_ms: null, end_ms: 16000 }] };
+function harness(primary = { data: valid }, fallback = { status: 404 }) {
+  let listener, storageListener;
+  const state = { episode, enabled: true, calls: [], session: {}, primary, fallback };
   const browser = {
     runtime: { id: "extension", onMessage: { addListener(fn) { listener = fn; } } },
-    storage: { local: { get: async () => ({ enabled: state.enabled }) }, session: { get: async () => state.session, set: async value => Object.assign(state.session, value) }, onChanged: event },
-    tabs: { sendMessage: async () => ({ episode: state.episode, route: "https://watch.example/episode" }), onRemoved: event, onUpdated: event }
+    storage: { local: { get: async () => ({ enabled: state.enabled }) }, session: { get: async () => state.session, set: async value => Object.assign(state.session, value) }, onChanged: { addListener(fn) { storageListener = fn; } } },
+    tabs: { sendMessage: async () => ({ episode: state.episode, route: "https://watch.example/episode" }), get: async () => ({ title: "Example S1:E2" }) }
   };
   const context = vm.createContext({ browser, URL, URLSearchParams, AbortController, setTimeout, clearTimeout, fetch: async (url, options) => {
     state.calls.push({ url, options });
-    return { ok: status === 200, status, headers: { get: () => "120" }, text: async () => JSON.stringify(response) };
+    const config = new URL(url).hostname === "api.introdb.app" ? state.primary : state.fallback;
+    if (config.wait) await config.wait(options.signal);
+    const status = config.status || 200;
+    return { ok: status === 200, status, headers: { get: name => name === "Retry-After" ? "120" : null }, text: async () => JSON.stringify(config.data) };
   } });
   for (const source of sources) vm.runInContext(source, context);
-  state.lookup = async local => JSON.parse(JSON.stringify(await new Promise(resolve => listener({ type: "skip-intro:lookup", episode: local }, { id: "extension", tab: { id: 1 }, frameId: 1 }, resolve))));
+  state.send = async message => JSON.parse(JSON.stringify(await new Promise(resolve => listener(message, { id: "extension", tab: { id: 1 }, frameId: 1 }, resolve))));
+  state.lookup = (local, durationMs) => state.send({ type: "skip-intro:lookup", episode: local, durationMs });
+  state.setEnabled = value => { state.enabled = value; storageListener({ enabled: { newValue: value } }, "local"); };
   return state;
 }
-const valid = { imdb_id: episode.imdbId, media_type: "tv", is_movie: false, season: 1, episode: 2, intro: { start_ms: 0, end_ms: 16000 } };
 
 test("embedded player resolves top-frame identity and coalesces metadata-only API calls", async () => {
-  const state = harness(valid);
+  const state = harness();
   const [first, second] = await Promise.all([state.lookup(), state.lookup()]);
   assert.equal(first.status, "ready");
   assert.deepEqual(second, first);
-  assert.deepEqual(first.intro, { start: 0, end: 16, source: "introdb" });
+  assert.deepEqual(first.intros, [{ start: 0, end: 16, source: "introdb" }]);
   assert.equal((await state.lookup()).status, "ready");
   assert.equal(state.calls.length, 1);
   const { url, options } = state.calls[0];
@@ -36,33 +41,72 @@ test("embedded player resolves top-frame identity and coalesces metadata-only AP
   assert.equal(options.credentials, "omit");
   assert.equal(options.referrerPolicy, "no-referrer");
   assert.equal(options.redirect, "error");
-  assert.equal(state.session.introdbCache.length, 1);
+  assert.equal(state.session.catalogCache.length, 1);
 });
 
 test("disabled, missing, and conflicting identities cause no network lookup", async () => {
-  const state = harness(valid);
-  state.enabled = false;
+  const state = harness();
+  state.setEnabled(false);
   assert.equal((await state.lookup()).status, "disabled");
-  state.enabled = true; state.episode = null;
+  assert.equal((await state.send({ type: "skip-intro:tab-context" })).status, "disabled");
+  state.setEnabled(true); state.episode = null;
   assert.equal((await state.lookup()).status, "missing-identity");
   state.episode = episode;
   assert.equal((await state.lookup({ ...episode, episode: 3 })).status, "missing-identity");
   assert.equal(state.calls.length, 0);
 });
 
-test("missing intros are cached and rate limits pause other episode lookups", async () => {
-  const missing = harness({ ...valid, intro: null, outro: valid.intro });
-  assert.equal((await missing.lookup()).status, "not-found");
-  assert.equal((await missing.lookup()).status, "not-found");
-  assert.equal(missing.calls.length, 1);
-  const limited = harness({}, 429);
-  assert.equal((await limited.lookup()).status, "rate-limited");
-  limited.episode = { ...episode, episode: 3 };
-  assert.equal((await limited.lookup()).status, "rate-limited");
-  assert.equal(limited.calls.length, 1);
+test("missing intros use the second catalog and cache both responses", async () => {
+  const state = harness({ data: { ...valid, intro: null, outro: valid.intro } }, { data: secondary });
+  state.episode = { ...episode, tmdbId: 5920 };
+  const result = await state.lookup(undefined, 2613000);
+  assert.equal(result.status, "ready");
+  assert.equal(result.provider, "theintrodb");
+  assert.deepEqual(result.intros, [{ start: 0, end: 16, source: "theintrodb" }]);
+  const url = new URL(state.calls[1].url);
+  assert.equal(url.origin, "https://api.theintrodb.org");
+  assert.equal(url.searchParams.get("tmdb_id"), "5920");
+  assert.equal(url.searchParams.get("duration_ms"), "2613000");
+  assert.equal(url.searchParams.has("imdb_id"), false);
+  await state.lookup(undefined, 2613000);
+  assert.equal(state.calls.length, 2);
+  assert.equal(state.session.catalogCache.length, 2);
 });
 
-test("wrong-episode responses are rejected instead of producing a button", async () => {
-  const state = harness({ ...valid, episode: 3 });
-  assert.equal((await state.lookup()).status, "unavailable");
+test("catalog rate limits are independent and a working fallback is still used", async () => {
+  const state = harness({ status: 429 }, { data: secondary });
+  assert.equal((await state.lookup()).provider, "theintrodb");
+  state.episode = { ...episode, episode: 3 };
+  state.fallback = { status: 404 };
+  assert.equal((await state.lookup()).status, "rate-limited");
+  assert.equal(state.calls.length, 3);
+  assert.ok(state.session.catalogCooldowns.introdb > Date.now());
+});
+
+test("no catalog has an intro and malformed responses never become timing ranges", async () => {
+  const missing = harness({ data: { ...valid, intro: null } });
+  assert.equal((await missing.lookup()).status, "not-found");
+  await missing.lookup();
+  assert.equal(missing.calls.length, 2);
+  const wrong = harness({ data: { ...valid, episode: 3 } });
+  assert.equal((await wrong.lookup()).status, "unavailable");
+});
+
+test("switching OFF aborts a pending request, prevents fallback, and rejects its late result", async () => {
+  let entered, release;
+  const started = new Promise(resolve => { entered = resolve; });
+  const wait = new Promise(resolve => { release = resolve; });
+  const state = harness({ data: { ...valid, intro: null }, wait: async signal => { entered(signal); await wait; } }, { data: secondary });
+  const lookup = state.lookup();
+  const signal = await started;
+  state.setEnabled(false);
+  assert.equal(signal.aborted, true);
+  release();
+  assert.equal((await lookup).status, "disabled");
+  assert.equal(state.calls.length, 1);
+  assert.equal(state.session.catalogCache, undefined);
+  state.primary = { data: valid };
+  state.setEnabled(true);
+  assert.equal((await state.lookup()).status, "ready");
+  assert.equal(state.calls.length, 2);
 });

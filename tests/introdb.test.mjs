@@ -39,3 +39,19 @@ test("converts milliseconds once and never treats an outro as an intro", () => {
     { ...response, intro: undefined }
   ]) assert.throws(() => parseResponse(data, episode));
 });
+
+test("TheIntroDB validates canonical identity and keeps multiple bounded intro segments", () => {
+  const parse = globalThis.SkipIntroDB.parseTheIntroDB;
+  const identity = { ...episode, tmdbId: 5920 };
+  const data = { tmdb_id: 5920, type: "tv", season: 1, episode: 2, intro: [{ start_ms: null, end_ms: 16000 }, { start_ms: 42000, end_ms: 75000 }] };
+  assert.deepEqual(parse(data, identity), [{ start: 0, end: 16, source: "theintrodb" }, { start: 42, end: 75, source: "theintrodb" }]);
+  assert.deepEqual(parse({ ...data, intro: undefined, credits: data.intro }, identity), []);
+  for (const bad of [
+    { ...data, tmdb_id: 1 },
+    { ...data, episode: 3 },
+    { ...data, type: "movie" },
+    { ...data, intro: null },
+    { ...data, intro: [{ start_ms: 0, end_ms: null }] },
+    { ...data, intro: [{ start_ms: "0", end_ms: 16000 }] }
+  ]) assert.throws(() => parse(bad, identity));
+});

@@ -22,6 +22,7 @@ input:disabled + .switch { opacity:.45; }
 #status { font-size:11px; color:#ddd; }
 #status:empty { display:none; }
 .attribution { display:inline-block; margin-top:12px; color:#c4c4c4; font-size:10px; text-underline-offset:3px; }
+.attribution + .attribution { margin-left:12px; }
 footer { display:flex; gap:10px; align-items:center; justify-content:center; border-top:1px solid #ffffff14; margin-top:31px; padding-top:17px; font-size:9px; color:#999; }
 footer i { width:2px; height:2px; border-radius:50%; background:#666; }
 @media (prefers-reduced-motion:reduce) { .switch,.switch::after { transition:none; } }

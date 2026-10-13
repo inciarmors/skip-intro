@@ -33,7 +33,8 @@
   button.innerHTML = '<svg viewBox="0 0 28 28" aria-hidden="true"><path d="M2 5v18l10-9z M12 5v18l10-9z M23 5h3v18h-3z"/></svg><span>Skip intro</span>';
   shadow.append(style, button);
 
-  let enabled = false, selected = null, candidate = null, busy = false, scheduled = false;
+  let enabled = false, running = false, selected = null, candidate = null, busy = false;
+  let frameRequest = null, tickTimer = null, clickTimer = null, settingsRevision = 0;
   let route = location.href, mediaSource = "", lastRootScan = 0;
   const roots = new Map();
   const changedTracks = new Map();
@@ -41,9 +42,8 @@
   const nativeHooks = '[data-uia="player-skip-intro"],[data-testid="skip-intro"],[data-testid="skip-intro-button"],[data-action="skip-intro"]';
 
   function schedule() {
-    if (scheduled) return;
-    scheduled = true;
-    requestAnimationFrame(() => { scheduled = false; tick(); });
+    if (!running || frameRequest !== null) return;
+    frameRequest = requestAnimationFrame(() => { frameRequest = null; tick(); });
   }
 
   function discover(node) {
@@ -69,6 +69,43 @@
     for (const element of root.querySelectorAll("*")) {
       if (element !== host && element.shadowRoot) observe(element.shadowRoot);
     }
+  }
+
+  function unobserve(root, observer) {
+    observer.disconnect();
+    root.removeEventListener("timeupdate", schedule, true);
+    root.removeEventListener("loadedmetadata", schedule, true);
+    root.removeEventListener("emptied", schedule, true);
+    root.removeEventListener("fullscreenchange", schedule);
+    roots.delete(root);
+  }
+
+  function suspend() {
+    running = false;
+    if (frameRequest !== null) cancelAnimationFrame(frameRequest);
+    clearInterval(tickTimer); clearTimeout(clickTimer);
+    frameRequest = tickTimer = clickTimer = null;
+    for (const [root, observer] of roots) unobserve(root, observer);
+    window.removeEventListener("resize", schedule);
+    window.removeEventListener("scroll", schedule, true);
+    restoreTracks(); analysis?.stop(); catalog?.stop();
+    selected = candidate = null; busy = false; host.remove();
+  }
+
+  function resume() {
+    if (!enabled || document.hidden || running) return;
+    running = true; lastRootScan = 0;
+    observe(document);
+    window.addEventListener("resize", schedule, { passive: true });
+    window.addEventListener("scroll", schedule, { passive: true, capture: true });
+    tickTimer = setInterval(tick, 500);
+    tick();
+  }
+
+  function setEnabled(value) {
+    enabled = value;
+    catalog?.setEnabled(value);
+    if (enabled) resume(); else suspend();
   }
 
   function query(selector) {
@@ -166,11 +203,11 @@
   function tick() {
     candidate = null;
     host.style.display = "none";
-    if (!enabled || document.hidden) { analysis?.stop(); catalog?.stop(); return; }
+    if (!running || !enabled || document.hidden) return;
     // Also discover roots attached to existing elements after initial insertion.
     if (performance.now() - lastRootScan > 3000) {
       for (const [root, observer] of roots) {
-        if (root.host && !root.host.isConnected) { observer.disconnect(); roots.delete(root); }
+        if (root.host && !root.host.isConnected) unobserve(root, observer);
       }
       discover(document.documentElement);
       lastRootScan = performance.now();
@@ -218,24 +255,21 @@
         if (target !== null) selected.currentTime = target;
       }
     } catch { /* Leave playback alone if the player rejects the action. */ }
-    setTimeout(() => { busy = false; tick(); }, 400);
+    clickTimer = setTimeout(() => { clickTimer = null; busy = false; tick(); }, 400);
   });
 
   api.storage.onChanged.addListener((changes, area) => {
     if (area !== "local" || !changes.enabled) return;
-    enabled = changes.enabled.newValue !== false;
-    if (!enabled) restoreTracks();
-    tick();
+    settingsRevision++;
+    setEnabled(changes.enabled.newValue !== false);
   });
-  observe(document);
-  document.addEventListener("visibilitychange", schedule);
-  window.addEventListener("resize", schedule, { passive: true });
-  window.addEventListener("scroll", schedule, { passive: true, capture: true });
-  api.storage.local.get("enabled").then(data => { enabled = data.enabled !== false; tick(); }).catch(() => { enabled = true; tick(); });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) suspend(); else resume(); });
+  window.addEventListener("pagehide", suspend);
+  window.addEventListener("pageshow", resume);
+  api.storage.local.get("enabled").then(data => { if (!settingsRevision) setEnabled(data.enabled !== false); }).catch(() => { /* Stay idle when settings cannot be read. */ });
   // Legacy user-entered ranges are never read or used by the automatic detector.
   api.storage.local.get(null).then(data => {
     const keys = Object.keys(data).filter(key => key.startsWith("intro:"));
     if (keys.length) return api.storage.local.remove(keys);
   }).catch(() => {});
-  setInterval(tick, 500);
 })();

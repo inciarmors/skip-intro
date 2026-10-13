@@ -9,6 +9,7 @@
   let lastSecond = -1, lastSave = 0, acquiring = false, audioUnavailable = false, visualUnavailable = false;
   let canvas = null, canvasContext = null, frequency = null;
   let tabTitle = "", lastContextRead = 0, contextPending = false;
+  let sampleTimer = null;
   const digest = async text => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text))), byte => byte.toString(16).padStart(2, "0")).join("");
 
   function releaseCapture() {
@@ -26,6 +27,9 @@
     lastSave = Date.now();
   }
   function stop() {
+    clearInterval(sampleTimer); sampleTimer = null;
+    document.removeEventListener("pointerdown", resumeAudio);
+    document.removeEventListener("keydown", resumeAudio);
     persist(); version++; releaseCapture();
     video = null; identity = ""; libraryKey = matcher = null;
     lastSecond = -1; audioUnavailable = visualUnavailable = false; acquiring = false;
@@ -76,8 +80,12 @@
       const values = await api.storage.local.get(key);
       if (current !== version) return;
       libraryKey = key; matcher = new Matcher(values[key], episodeHash);
+      sampleTimer = setInterval(sample, 250);
+      document.addEventListener("pointerdown", resumeAudio, { passive: true });
+      document.addEventListener("keydown", resumeAudio, { passive: true });
       // Keep at most twelve series, with at most four sampled episodes/templates each.
       const all = await api.storage.local.get(null);
+      if (current !== version) return;
       const stale = Object.keys(all).filter(k => k.startsWith("fingerprints:v1:") && k !== key)
         .sort((a, b) => (all[b]?.updatedAt || 0) - (all[a]?.updatedAt || 0)).slice(11);
       if (stale.length) await api.storage.local.remove(stale);
@@ -157,9 +165,7 @@
     if (!video || video.paused || !candidate || Math.abs(video.currentTime - candidate.observedAt) > 1.8) return null;
     return candidate;
   }
-  document.addEventListener("pointerdown", () => { if (context?.state === "suspended") void context.resume().catch(() => {}); }, { passive: true });
-  document.addEventListener("keydown", () => { if (context?.state === "suspended") void context.resume().catch(() => {}); }, { passive: true });
+  function resumeAudio() { if (context?.state === "suspended") void context.resume().catch(() => {}); }
   window.addEventListener("pagehide", stop);
-  setInterval(sample, 250);
   globalThis.SkipIntroAnalysis = Object.freeze({ select, stop, getCandidate });
 })();

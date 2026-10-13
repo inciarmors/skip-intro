@@ -6,7 +6,10 @@
   function normalize(value) {
     const season = integer(value?.season), episode = integer(value?.episode);
     if (!/^tt\d{7,10}$/.test(value?.imdbId || "") || season === null || season < 0 || season > 1000 || episode === null || episode < 1 || episode > 10000) return null;
-    return { imdbId: value.imdbId, season, episode };
+    const result = { imdbId: value.imdbId, season, episode };
+    const tmdbId = integer(value.tmdbId);
+    if (tmdbId > 0 && tmdbId <= 10000000) result.tmdbId = tmdbId;
+    return result;
   }
   const key = value => value ? `${value.imdbId}:${value.season}:${value.episode}` : "";
   function titleNumbers(title) {
@@ -22,7 +25,7 @@
     } catch { return null; }
     const props = page.props;
     if (props?.title?.type !== "tv") return null;
-    const result = normalize({ imdbId: props.title.imdb_id, season: props.episode?.season?.number, episode: props.episode?.number });
+    const result = normalize({ imdbId: props.title.imdb_id, tmdbId: props.title.tmdb_id, season: props.episode?.season?.number, episode: props.episode?.number });
     const numbers = titleNumbers(title);
     if (result && numbers && (numbers.season !== result.season || numbers.episode !== result.episode)) return null;
     return result;

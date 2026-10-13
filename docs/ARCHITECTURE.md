@@ -2,19 +2,21 @@
 
 Manifest V3, with no custom backend, remote scripts, or runtime dependencies. Ordered content scripts share an isolated-world namespace: `core.js`, `episode.js`, `catalog.js`, `fingerprint.js`, `analysis.js`, and `content.js`. The only privileged API permission is `storage`.
 
-## IntroDB integration
+## Catalog integration
 
 `episode.js` extracts a complete IMDb series ID, season number, and episode number from observed StreamingCommunity/Inertia `Titles/Watch` page metadata or unambiguous Schema.org `TVEpisode` structured data. Internal site IDs and season IDs are never used as episode numbers. The series IMDb ID must be explicit; the extension does not guess it from titles, scrape search engines, or ask users for timings.
 
-The watch-page adapter reads `props.title.imdb_id`, `props.episode.number`, and `props.episode.season.number`. It checks the page URL and rejects episode-style titles that contradict those numbers. Inertia navigation events refresh available page context; stale initial metadata is rejected after a route change. If the site's navigation no longer exposes usable metadata, reload the watch page.
+The watch-page adapter reads `props.title.imdb_id`, optional `props.title.tmdb_id`, `props.episode.number`, and `props.episode.season.number`. It checks the page URL and rejects episode-style titles that contradict those numbers. Inertia navigation events refresh available page context; stale initial metadata is rejected after a route change. If the site's navigation no longer exposes usable metadata, reload the watch page.
 
 Embedded player frames ask the background script for a lookup. The background reads fresh context from frame 0 through extension messaging, combines it with any local identity, and rejects conflicting identities. No page context is exposed through a web-accessible script or a website message handler. Missing identity causes no API request.
 
-The background requests only `https://api.introdb.app/segments?imdb_id=...&season=...&episode=...`, with credentials omitted, no referrer, redirects rejected, and an eight-second timeout. Returned identity must match the request. Milliseconds are converted to seconds once; only finite intro boundaries of 2–300 seconds are accepted. Null intro or HTTP 404 means no catalog timing, even when an outro is present. The player duration and seekable range are checked again before displaying the button and seeking.
+The background first requests `https://api.introdb.app/segments?imdb_id=...&season=...&episode=...`, with credentials omitted, no referrer, redirects rejected, and an eight-second timeout. Returned identity must match the request. Milliseconds are converted to seconds once; only finite intro boundaries of 2–300 seconds are accepted. Null intro or HTTP 404 means no catalog timing, even when an outro is present. The player duration and seekable range are checked again before displaying the button and seeking.
 
-Requests for the same episode are coalesced. At most 100 response entries live in browser-session storage, with a six-hour positive TTL, fifteen-minute missing-result TTL, and thirty-second error TTL. HTTP 429 honors Retry-After with a bounded cooldown. There are no API keys, submissions, database copies, or bulk catalog requests. Disabling detection aborts active API fetches. Lookup state is shown in the popup.
+If no primary timing is available, the background tries TheIntroDB's public `/v3/media` endpoint using canonical TMDB when available, otherwise IMDb, plus season, episode, and optional player duration. The returned TV/episode identity is validated, including TMDB when known. Intro arrays are normalized to seconds; null start means zero, while null end is rejected for an intro. Multiple bounded intro segments are supported. Other segment types are ignored. IMDb-only lookup relies on the provider's server-side ID mapping; duration is a release-selection hint, not a guarantee.
 
-Native controls and player metadata take precedence over IntroDB; local recurrence is a fallback. Catalog state resets on player/source/route changes, is refreshed while the player is visible, and expires if background replies stop. Different edits of an episode can still have different timings; catalog availability is not proof that the returned timing matches every release.
+Requests for the same provider/episode/release are coalesced. At most 100 response entries live in browser-session storage, with a six-hour positive TTL, fifteen-minute missing-result TTL, and thirty-second error TTL. HTTP 429 honors Retry-After and exhausted rate/usage reset headers with a bounded, provider-specific cooldown. A throttled provider does not block the other provider. There are no API keys, submissions, database copies, or bulk catalog requests. An enabled-state generation token is checked before and after asynchronous steps. Disabling detection aborts active API fetches, invalidates pending work, and prevents late replies from starting a fallback or writing a cache result. Lookup state is shown in the popup.
+
+Native controls and player metadata take precedence over catalogs; local recurrence is a fallback. Catalog state resets on player/source/route changes, is refreshed while the player is visible, and expires if background replies stop. Different edits of an episode can still have different timings; catalog availability is not proof that the returned timing matches every release.
 
 ## Player signals
 
@@ -66,3 +68,11 @@ Mutation discovery and bounded periodic checks handle new players, routes, frame
 - [HTMLMediaElement text tracks](https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement/textTracks)
 - [Schema.org clip offsets](https://schema.org/startOffset)
 - [Mozilla manifest settings](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/browser_specific_settings)
+
+## OFF and browser lifecycle
+
+The Chrome background is a service worker; the Firefox background is explicitly non-persistent. Neither has an interval or keep-alive loop. Settings and runtime-message listeners are registered synchronously. No tab-navigation listener wakes the background while OFF. Session caches survive background suspension; the enabled state is read before any metadata lookup.
+
+The content controller starts its polling interval and DOM/player observers only when enabled and visible. OFF cancels intervals, animation frames, and click cooldowns; disconnects observers and player/scroll/resize listeners; restores text-track modes; stops analysis and catalog state; and removes the overlay. Visibility changes suspend and resume active detection. BFCache page transitions are handled through pagehide/pageshow.
+
+The analyser starts its sampling interval only after establishing a series matcher and stops it in `stop()`. Audio resume listeners and captured tracks are released as well. The popup stops status polling while OFF. Lightweight settings, visibility, and runtime listeners remain to support reactivation. The browser ultimately controls whether the background context is unloaded, and a connected debugger may keep it alive.
