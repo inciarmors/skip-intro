@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Skip Intro",
+  "version": "0.1.0",
+  "description": "Salta le sigle riconosciute dai capitoli del video o dai tuoi intervalli salvati, con un click.",
+  "permissions": ["storage"],
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "action": {
+    "default_title": "Skip Intro",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [{
+    "matches": ["http://*/*", "https://*/*"],
+    "all_frames": true,
+    "match_about_blank": true,
+    "run_at": "document_idle",
+    "js": ["core.js", "content.js"]
+  }]
+}

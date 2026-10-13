@@ -1,0 +1,24 @@
+{
+  "name": "skip-intro",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A local-first intro skipping extension for Chrome and Firefox.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/core.test.mjs",
+    "test:browser": "playwright test",
+    "lint:extension": "addons-linter dist/firefox --warnings-as-errors",
+    "check": "npm test && npm run build && npm run lint:extension && npm run test:browser",
+    "demo": "node scripts/serve.mjs",
+    "package": "npm run build && node scripts/package.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.0",
+    "addons-linter": "^10.14.0"
+  }
+}

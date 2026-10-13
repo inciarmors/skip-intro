@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Skip Intro · laboratorio</title>
+<style>
+  :root { color-scheme:dark; font:16px/1.6 system-ui,sans-serif; background:#0b0e16; color:#eef1f8; }
+  body { max-width:1000px; padding:40px 24px; margin:auto; }
+  header { color:#b9ff83; font-weight:700; font-size:13px; letter-spacing:2px; }
+  h1 { font-size:clamp(32px,6vw,60px); line-height:1.1; letter-spacing:-2px; margin:32px 0 16px; }
+  p { color:#adb8ce; max-width:730px; } button,input { font:inherit; }
+  button { cursor:pointer; padding:10px 16px; border-radius:8px; border:1px solid #586076; background:#202738; color:#fff; }
+  #player { background:#000; border-radius:16px; overflow:hidden; margin:24px 0; }
+  video { width:100%; display:block; aspect-ratio:16/9; }
+  #player:fullscreen { display:grid; place-items:center; } #player:fullscreen video { max-height:100vh; }
+  .controls { display:flex; gap:10px; flex-wrap:wrap; }
+  #status { color:#b9ff83; } code { color:#c6e9ae; }
+</style></head><body>
+<header>SKIP INTRO / LABORATORIO</header><h1>Una sigla. Un click.<br>Si torna alla storia.</h1>
+<p>Test locale senza video esterni: genera una clip di 16 secondi, con una sigla dal secondo 3 al secondo 9. Carica prima l’estensione nel browser.</p>
+<button id="generate">1. Genera video di prova (16 secondi)</button><p id="status" role="status">La clip è generata nel browser. Nessun contenuto viene caricato online.</p>
+<div id="player"><video controls playsinline muted></video></div>
+<div class="controls"><button id="intro">2. Vai alla sigla</button><button id="chapters">Usa capitoli</button><button id="manual">Togli capitoli · prova manuale</button><button id="fullscreen">Schermo intero</button></div>
+<p>Con i capitoli attivi, “Skip intro” deve apparire tra 0:03 e 0:09 e portare il video a 0:09. Senza capitoli, passa sul video e apri “Regola sigla”. Il video generato non ha audio: qui verifichiamo il rilevamento dei capitoli e il salto.</p>
+<script src="demo.js"></script></body></html>
