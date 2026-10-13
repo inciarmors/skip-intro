@@ -15,13 +15,14 @@ test("real Chromium extension loads and skips a generated local video", async ({
       args: [`--disable-extensions-except=${path}`, `--load-extension=${path}`]
     });
     const page = await context.newPage();
+    await page.bringToFront();
     const errors = [];
     page.on("pageerror", error => errors.push(error.message));
     await page.goto("http://127.0.0.1:4173");
-    await page.getByRole("button", { name: "1. Genera" }).click();
-    await expect(page.locator("#status")).toContainText("Clip pronta", { timeout: 25000 });
+    await page.getByRole("button", { name: "1. Generate" }).click();
+    await expect(page.locator("body > #status")).toContainText("Clip ready", { timeout: 40000 });
     await expect.poll(() => page.locator("video").evaluate(v => Number.isFinite(v.duration)), { timeout: 10000 }).toBe(true);
-    await page.getByRole("button", { name: "2. Vai" }).click();
+    await page.getByRole("button", { name: "2. Go" }).click();
     const skip = page.getByRole("button", { name: "Skip intro →", exact: true });
     await expect(skip).toBeVisible();
     await expect(skip).toBeEnabled();

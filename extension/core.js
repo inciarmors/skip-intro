@@ -1,7 +1,7 @@
 /* Pure detection logic shared by the extension and tests. No network access. */
 (() => {
   "use strict";
-  const labels = /^(intro|introduction|opening|opening credits|title sequence|sigla|sigla iniziale|introduzione|générique|generique|introducción|introduccion|abertura|vorspann)$/i;
+  const labels = /^(intro|introduction|opening|opening credits|title sequence)$/i;
 
   function segment(start, end, duration, source = "chapters") {
     const numeric = value => typeof value === "number" || (typeof value === "string" && value.trim() !== "");

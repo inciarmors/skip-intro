@@ -10,7 +10,7 @@ test("validates boundaries and rejects unknown/live duration", () => {
   }
 });
 test("recognizes chapter labels without mistaking subtitles, recaps or incidental text for intros", () => {
-  for (const label of ["Intro", " Sigla ", "Opening Credits", "Générique", "Vorspann"]) {
+  for (const label of ["Intro", " Opening ", "Opening Credits", "Introduction", "Title Sequence"]) {
     assert.equal(fromCues([{ text: label, startTime: 12, endTime: 80 }], "chapters", 2000)?.end, 80);
   }
   for (const label of ["Previously on", "Recap", "End credits", "Introducing John", "[music]"]) {

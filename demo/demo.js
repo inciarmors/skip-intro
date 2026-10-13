@@ -1,10 +1,10 @@
 const video = document.querySelector("video");
 const status = document.getElementById("status");
-const track = video.addTextTrack("chapters", "Capitoli", "it");
+const track = video.addTextTrack("chapters", "Chapters", "en");
 track.mode = "hidden";
 function chapters(on) {
   for (const cue of Array.from(track.cues || [])) track.removeCue(cue);
-  if (on) track.addCue(new VTTCue(3, 9, "Sigla"));
+  if (on) track.addCue(new VTTCue(3, 9, "Intro"));
 }
 chapters(true);
 document.getElementById("chapters").onclick = () => chapters(true);
@@ -32,11 +32,11 @@ document.getElementById("generate").onclick = async event => {
         const intro = elapsed >= 3 && elapsed < 9;
         ctx.fillStyle = intro ? "#233823" : "#192237"; ctx.fillRect(0, 0, 960, 540);
         ctx.fillStyle = intro ? "#b9ff83" : "#eef1f8"; ctx.font = "bold 64px system-ui";
-        ctx.fillText(intro ? "SIGLA INIZIALE" : "LA STORIA CONTINUA", 60, 260);
+        ctx.fillText(intro ? "OPENING CREDITS" : "THE STORY CONTINUES", 60, 260);
         ctx.font = "24px system-ui"; ctx.fillText(`${elapsed.toFixed(1)} s / 16 s`, 60, 320);
         ctx.fillStyle = "#b9ff83"; ctx.fillRect(60, 440, Math.min(840, elapsed / 16 * 840), 4);
-        status.textContent = `Generazione locale… ${Math.min(16, Math.floor(elapsed))}/16 secondi`;
-        if (elapsed >= 16) resolve(); else requestAnimationFrame(draw);
+        status.textContent = `Generating locally… ${Math.min(16, Math.floor(elapsed))}/16 seconds`;
+        if (elapsed >= 16) resolve(); else setTimeout(draw, 50);
       }; draw();
     });
     recorder.stop(); await done; stream.getTracks().forEach(track => track.stop());
@@ -49,7 +49,7 @@ document.getElementById("generate").onclick = async event => {
         video.currentTime = 1e10;
       }
     }, { once: true });
-    status.textContent = "Clip pronta. Premi Vai alla sigla oppure Play.";
-  } catch (error) { status.textContent = `Generazione non disponibile: ${error.message}`; }
+    status.textContent = "Clip ready. Click Go to intro or Play.";
+  } catch (error) { status.textContent = `Unable to generate the clip: ${error.message}`; }
   finally { button.disabled = false; }
 };

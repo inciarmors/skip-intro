@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Skip Intro",
   "version": "0.1.0",
-  "description": "Salta le sigle riconosciute dai capitoli del video o dai tuoi intervalli salvati, con un click.",
+  "description": "Skip intros detected from video chapters or your saved time ranges with a single click.",
   "permissions": ["storage"],
   "host_permissions": ["http://*/*", "https://*/*"],
   "action": {

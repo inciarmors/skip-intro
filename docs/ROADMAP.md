@@ -1,29 +1,29 @@
 # Roadmap
 
-## 0.1 — Prototipo verificabile
+## 0.1 — Verifiable prototype
 
-- [x] Manifest V3 per Chrome e Firefox.
-- [x] Player HTML5, capitoli e intervalli espliciti.
-- [x] Pulsante Skip intro al click e impostazione manuale locale.
-- [x] Laboratorio riproducibile, test e CI.
-- [ ] Verifica manuale su una matrice di siti reali e versioni browser.
+- [x] Manifest V3 builds for Chrome and Firefox.
+- [x] HTML5 players, chapters, and explicit timing metadata.
+- [x] Click-to-skip button and local manual timing.
+- [x] Reproducible lab, tests, and CI.
+- [ ] Manual verification across a matrix of real sites and browser versions.
 
-## 0.2 — Copertura dei player
+## 0.2 — Player coverage
 
-- [ ] Adapter isolati per player che espongono già marker intro; selezionarli dopo una verifica sui siti obiettivo.
-- [ ] Identità stabile di serie, stagione ed episodio, evitando confusione con trailer e pubblicità.
-- [ ] Supporto a player in shadow root aperte e miglioramento accessibilità dei controlli manuali.
-- [ ] Miglioramento fullscreen/Picture-in-Picture dove le API del browser lo consentono.
-- [ ] Icone definitive, verifica privacy e pubblicazione negli store.
+- [ ] Isolated adapters for players that expose intro markers, selected after testing target sites.
+- [ ] Stable series, season, and episode identity, avoiding confusion with trailers and ads.
+- [ ] Support for players in open shadow roots and improved manual-control accessibility.
+- [ ] Better fullscreen/Picture-in-Picture support where browser APIs allow it.
+- [ ] Final icons, privacy review, and store publication.
 
-## Ricerca — Sigle senza metadati
+## Research — Intros without metadata
 
-- [ ] Costruire un corpus di clip utilizzabili per i test, con confini annotati e casi difficili: recap, cold open, sigle variabili, versioni brevi, doppiaggi e montaggi diversi.
-- [ ] Valutare impronte audio locali per trovare sequenze ripetute tra episodi, misurando errore sui confini e falsi positivi prima di mostrare il pulsante.
-- [ ] Valutare segnali visivi come supporto al riconoscimento, con un budget CPU/memoria misurato.
-- [ ] Verificare separatamente accesso ai flussi, CORS, DRM e necessità di consenso/permessi di acquisizione: l’analisi non è sempre tecnicamente disponibile.
-- [ ] Definire fallback e soglie conservative. Una sequenza musicale, da sola, non prova che sia una sigla.
+- [ ] Build a test corpus with appropriate usage rights, annotated boundaries, and difficult examples: recaps, cold opens, changing intros, short versions, dubbing, and different edits.
+- [ ] Evaluate local audio fingerprints for repeated sequences across episodes, measuring boundary errors and false positives before showing the button.
+- [ ] Evaluate visual signals as supporting evidence with measured CPU and memory budgets.
+- [ ] Separately verify stream access, CORS, DRM, and any required capture permissions or consent: analysis is not always technically available.
+- [ ] Define conservative confidence thresholds and fallback behavior. Music alone does not prove a sequence is an intro.
 
-Il primo episodio visto, una nuova sigla o un flusso non analizzabile richiederanno comunque una fonte affidabile o una conferma manuale. Non promettiamo copertura del 100% dei siti.
+The first episode watched, an unseen intro, or an inaccessible stream will still need a reliable source or manual confirmation. We do not promise 100% site coverage.
 
-Un eventuale catalogo condiviso sarebbe un progetto separato, con consenso, moderazione e una nuova valutazione privacy. Il prototipo attuale non contatta alcun catalogo.
+A shared catalog would be a separate project requiring consent, moderation, and a new privacy review. The current prototype does not contact a catalog.

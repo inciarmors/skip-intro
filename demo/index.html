@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Skip Intro · laboratorio</title>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Skip Intro · lab</title>
 <style>
   :root { color-scheme:dark; font:16px/1.6 system-ui,sans-serif; background:#0b0e16; color:#eef1f8; }
   body { max-width:1000px; padding:40px 24px; margin:auto; }
@@ -13,10 +13,10 @@
   .controls { display:flex; gap:10px; flex-wrap:wrap; }
   #status { color:#b9ff83; } code { color:#c6e9ae; }
 </style></head><body>
-<header>SKIP INTRO / LABORATORIO</header><h1>Una sigla. Un click.<br>Si torna alla storia.</h1>
-<p>Test locale senza video esterni: genera una clip di 16 secondi, con una sigla dal secondo 3 al secondo 9. Carica prima l’estensione nel browser.</p>
-<button id="generate">1. Genera video di prova (16 secondi)</button><p id="status" role="status">La clip è generata nel browser. Nessun contenuto viene caricato online.</p>
+<header>SKIP INTRO / LAB</header><h1>One intro. One click.<br>Back to the story.</h1>
+<p>A local test with no external videos: generate a 16-second clip with an intro from second 3 to second 9. Load the extension in your browser first.</p>
+<button id="generate">1. Generate test video (16 seconds)</button><p id="status" role="status">The clip is generated in your browser. Nothing is uploaded.</p>
 <div id="player"><video controls playsinline muted></video></div>
-<div class="controls"><button id="intro">2. Vai alla sigla</button><button id="chapters">Usa capitoli</button><button id="manual">Togli capitoli · prova manuale</button><button id="fullscreen">Schermo intero</button></div>
-<p>Con i capitoli attivi, “Skip intro” deve apparire tra 0:03 e 0:09 e portare il video a 0:09. Senza capitoli, passa sul video e apri “Regola sigla”. Il video generato non ha audio: qui verifichiamo il rilevamento dei capitoli e il salto.</p>
+<div class="controls"><button id="intro">2. Go to intro</button><button id="chapters">Use chapters</button><button id="manual">Remove chapters · try manual timing</button><button id="fullscreen">Fullscreen</button></div>
+<p>With chapters enabled, “Skip intro” should appear between 0:03 and 0:09 and seek to 0:09. Without chapters, hover over the video and open “Adjust timing”. This clip has no audio: it tests chapter detection and seeking.</p>
 <script src="demo.js"></script></body></html>

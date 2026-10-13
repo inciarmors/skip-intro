@@ -30,16 +30,17 @@
   // This template is constant; page-provided strings are never interpolated as markup.
   const panel = document.createElement("div");
   panel.className = "panel";
+  panel.lang = "en";
   panel.innerHTML = `
     <button id="skip" hidden>Skip intro →</button>
-    <details><summary>Skip Intro · regola sigla</summary>
-      <p id="source">Nessuna sigla riconosciuta. Puoi segnarla tu.</p>
-      <div class="row"><button id="start">Segna inizio</button><button id="end">Segna fine</button></div>
+    <details><summary>Skip Intro · adjust timing</summary>
+      <p id="source">No intro detected. You can mark it yourself.</p>
+      <div class="row"><button id="start">Mark start</button><button id="end">Mark end</button></div>
       <form><div class="row">
-        <label>Inizio (secondi)<input id="from" type="number" min="0" step="0.1" required></label>
-        <label>Fine (secondi)<input id="to" type="number" min="2" step="0.1" required></label>
-      </div><div class="row"><button type="submit">Salva</button><button id="forget" type="button">Dimentica</button></div></form>
-      <p>Salvato solo in questo browser, per questo video. Il salto avviene solo al click.</p>
+        <label>Start (seconds)<input id="from" type="number" min="0" step="0.1" required></label>
+        <label>End (seconds)<input id="to" type="number" min="2" step="0.1" required></label>
+      </div><div class="row"><button type="submit">Save</button><button id="forget" type="button">Forget</button></div></form>
+      <p>Saved in this browser for this video only. Skipping always requires a click.</p>
       <p id="status" role="status" aria-live="polite"></p>
     </details>`;
   shadow.append(panel);
@@ -129,10 +130,10 @@
     const isIntro = core.active(detected, video.currentTime);
     $("skip").hidden = !isIntro;
     $("skip").disabled = busy || (isIntro && core.seekTarget(detected, video.currentTime, video.duration, ranges()) === null);
-    $("skip").textContent = $("skip").disabled ? "Sigla · attendo il video…" : "Skip intro →";
+    $("skip").textContent = $("skip").disabled ? "Intro · waiting for video…" : "Skip intro →";
     $("source").textContent = detected
-      ? `${detected.source === "manual" ? "Intervallo manuale" : "Sigla dai dati del video"}: ${core.formatTime(detected.start)} – ${core.formatTime(detected.end)}`
-      : "Nessuna sigla riconosciuta. Puoi segnarla tu.";
+      ? `${detected.source === "manual" ? "Manual timing" : "Intro from video data"}: ${core.formatTime(detected.start)} – ${core.formatTime(detected.end)}`
+      : "No intro detected. You can mark it yourself.";
     const rect = video.getBoundingClientRect();
     const pointerOver = lastPointer.x >= rect.left && lastPointer.x <= rect.right && lastPointer.y >= rect.top && lastPointer.y <= rect.bottom;
     const fullscreen = document.fullscreenElement;
@@ -149,7 +150,7 @@
   async function save(start, end) {
     if (!video) return;
     const value = core.segment(start, end, video.duration, "manual");
-    if (!value) { $("status").textContent = "Scegli un intervallo di 2–300 secondi, entro la durata del video."; return; }
+    if (!value) { $("status").textContent = "Choose a 2–300 second range within the video duration."; return; }
     saved = value;
     pendingStart = null;
     $("from").value = value.start.toFixed(1);
@@ -157,9 +158,9 @@
     const version = generation;
     try {
       if (storageKey) await api.storage.local.set({ [storageKey]: { start: value.start, end: value.end } });
-      if (version === generation) $("status").textContent = storageKey ? "Sigla salvata per questo video." : "Sigla attiva per questa sessione; salvataggio locale non disponibile.";
+      if (version === generation) $("status").textContent = storageKey ? "Intro saved for this video." : "Intro set for this session; local storage is unavailable.";
     } catch {
-      if (version === generation) $("status").textContent = "Sigla attiva; impossibile salvarla in questo browser.";
+      if (version === generation) $("status").textContent = "Intro set; unable to save it in this browser.";
     }
     tick();
   }
@@ -168,22 +169,22 @@
     tick(); // Revalidate the selected media after a route or source change.
     if (!video || busy) return;
     const target = core.seekTarget(detect(), video.currentTime, video.duration, ranges());
-    if (target === null) { $("status").textContent = "La fine della sigla non è ancora raggiungibile."; return; }
+    if (target === null) { $("status").textContent = "The end of the intro is not seekable yet."; return; }
     try {
       video.currentTime = target;
       busy = true;
       setTimeout(() => { busy = false; tick(); }, 500);
       tick();
-    } catch { $("status").textContent = "Questo player non consente il salto."; details.open = true; }
+    } catch { $("status").textContent = "This player does not allow seeking."; details.open = true; }
   });
   $("start").addEventListener("click", () => {
     if (!video) return;
     pendingStart = video.currentTime;
     $("from").value = pendingStart.toFixed(1);
-    $("status").textContent = "Inizio segnato. Alla fine della sigla premi Segna fine.";
+    $("status").textContent = "Start marked. Click Mark end when the intro finishes.";
   });
   $("end").addEventListener("click", () => {
-    if (pendingStart === null) { $("status").textContent = "Premi prima Segna inizio."; return; }
+    if (pendingStart === null) { $("status").textContent = "Click Mark start first."; return; }
     void save(pendingStart, video.currentTime);
   });
   shadow.querySelector("form").addEventListener("submit", event => {
@@ -196,9 +197,9 @@
     $("from").value = $("to").value = "";
     try {
       if (key) await api.storage.local.remove(key);
-      if (version === generation) $("status").textContent = "Intervallo manuale rimosso. Restano i capitoli, se presenti.";
+      if (version === generation) $("status").textContent = "Manual timing removed. Chapters still apply when available.";
     } catch {
-      if (version === generation) $("status").textContent = "Rimosso dalla sessione; impossibile cancellare il salvataggio.";
+      if (version === generation) $("status").textContent = "Removed from this session; unable to delete the saved timing.";
     }
     tick();
   });

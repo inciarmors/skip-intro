@@ -1,13 +1,13 @@
-# Privacy — versione 0.1.0
+# Privacy — version 0.1.0
 
-Skip Intro non invia dati a server, non usa analytics, non crea account e non registra audio o video. Il laboratorio genera una clip sintetica solo quando si preme il relativo pulsante.
+Skip Intro does not send data to servers, use analytics, create accounts, or record audio or video. The lab generates a synthetic clip locally only when its button is clicked.
 
-L’estensione legge localmente URL, elementi video, durata, posizione di riproduzione, intervalli raggiungibili e tracce capitoli/metadati per decidere se mostrare il pulsante.
+The extension reads page URLs, video elements, duration, playback position, seekable ranges, and chapter/metadata tracks locally to decide when to show the button.
 
-Nel profilo del browser salva l’impostazione di attivazione e gli intervalli inseriti dall’utente. Le chiavi degli intervalli sono hash SHA-256 dell’identità del video, inclusi URL e durata; non vengono salvati URL in chiaro. Un hash non garantisce anonimato rispetto a chi possiede il profilo e conosce possibili URL.
+The browser profile stores the enabled setting and user-entered intro timings. Timing keys are SHA-256 hashes of media identity, including URLs and duration; raw URLs are not stored. Hashing does not guarantee anonymity against someone who has access to the profile and knows possible URLs.
 
-L’accesso ai siti HTTP/HTTPS permette al content script di funzionare sui diversi player e iframe. Puoi limitarlo con i controlli del browser, con conseguente riduzione della copertura. Non sono richiesti permessi per cookie, cronologia o cattura delle schede.
+HTTP/HTTPS site access lets content scripts work across different players and frames. You can restrict access using browser controls, which reduces coverage. Cookie, browsing history, and tab capture permissions are not requested.
 
-Puoi rimuovere un singolo intervallo con **Dimentica**, tutti gli intervalli dal popup oppure disinstallare l’estensione. I dati non usano `storage.sync`; non vengono sincronizzati dall’estensione tra dispositivi.
+Use **Forget** to remove one manual timing, clear all saved timings from the popup, or uninstall the extension. The extension does not use `storage.sync` or synchronize data across devices.
 
-Le normali richieste del player e quelle avviate dal browser per caricare tracce del sito restano soggette alle politiche del sito e del browser. Le future funzioni di riconoscimento audiovisivo o catalogo condiviso dovranno aggiornare questa informativa prima di essere distribuite.
+Normal player requests and browser requests to load the site's media tracks remain subject to the site's and browser's policies. Future audiovisual recognition or shared catalog features must update this policy before distribution.

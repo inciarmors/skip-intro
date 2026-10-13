@@ -1,23 +1,23 @@
 # Skip Intro
 
-**La storia, senza attesa.** Un’estensione per Chrome e Firefox che mostra un pulsante **Skip intro** durante la sigla e porta il video alla sua fine, solo quando lo premi.
+**Your story, without the wait.** A Chrome and Firefox extension that shows a **Skip intro** button during opening credits and jumps to their end when you click it.
 
-> **Stato: prototipo 0.1.0.** Il riconoscimento audiovisivo universale è l’obiettivo del progetto, non una funzione già disponibile. Questa versione usa capitoli, metadati espliciti e intervalli manuali. Non promette compatibilità con ogni servizio di streaming.
+> **Status: prototype 0.1.0.** Universal audiovisual recognition is the project's goal, not a feature available today. This version uses chapters, explicit metadata, and manual timing. It does not promise compatibility with every streaming service.
 
-## Cosa funziona oggi
+## Available features
 
-- Rilevamento di capitoli chiamati `Intro`, `Opening`, `Opening credits`, `Sigla`, `Générique` e altri nomi precisi.
-- Lettura di metadati con intervalli espliciti della sigla.
-- Pulsante sopra il video durante l’intervallo riconosciuto; nessun salto automatico.
-- Impostazione manuale di inizio/fine, con i pulsanti **Segna inizio / Segna fine** o inserendo i secondi.
-- Salvataggio locale per video, senza server, account, analytics o invio di audio/video.
-- Player HTML5 aggiunti dinamicamente, navigazione SPA e iframe HTTP/HTTPS autorizzati.
-- Scelta del player visibile principale quando la pagina contiene più video; fullscreen del contenitore del player.
-- Popup per disattivare l’estensione e cancellare gli intervalli salvati.
+- Detects chapters labeled `Intro`, `Opening`, `Opening credits`, `Introduction`, or `Title sequence`.
+- Reads explicit intro timing metadata.
+- Displays a button over the video during the detected intro; never skips automatically.
+- Lets you set start/end times with **Mark start / Mark end** or enter seconds manually.
+- Saves timings locally for each video, without servers, accounts, analytics, or audio/video uploads.
+- Handles dynamically inserted HTML5 players, SPA navigation, and authorized HTTP/HTTPS iframes.
+- Selects the main visible player when several videos are present; supports player-container fullscreen.
+- Includes a popup to disable the extension and clear saved timings.
 
-## Installazione per sviluppo
+## Development installation
 
-Occorrono Node.js 22+ e npm. L’estensione distribuita non usa dipendenze runtime né codice remoto.
+Requires Node.js 22+ and npm. The distributed extension has no runtime dependencies or remote code.
 
 ```sh
 git clone https://github.com/inciarmors/skip-intro.git
@@ -28,43 +28,43 @@ npm run build
 
 **Chrome 120+**
 
-1. Apri `chrome://extensions` e attiva **Modalità sviluppatore**.
-2. Scegli **Carica estensione non pacchettizzata**.
-3. Seleziona la cartella `dist/chrome`.
-4. Ricarica le pagine video già aperte.
+1. Open `chrome://extensions` and enable **Developer mode**.
+2. Choose **Load unpacked**.
+3. Select the `dist/chrome` folder.
+4. Reload any video pages that are already open.
 
 **Firefox 142+ desktop**
 
-1. Apri `about:debugging#/runtime/this-firefox`.
-2. Scegli **Carica componente aggiuntivo temporaneo**.
-3. Seleziona `dist/firefox/manifest.json` e concedi l’accesso ai siti richiesti.
-4. Ricarica le pagine video già aperte. Il caricamento temporaneo termina alla chiusura di Firefox.
+1. Open `about:debugging#/runtime/this-firefox`.
+2. Choose **Load Temporary Add-on**.
+3. Select `dist/firefox/manifest.json` and grant the requested site access.
+4. Reload any video pages that are already open. Temporary installation ends when Firefox closes.
 
-Non è ancora pubblicata negli store. Per installare stabilmente su Firefox servirà la firma Mozilla.
+The extension is not published in the stores yet. Persistent installation in Firefox requires Mozilla signing.
 
-## Provala
+## Try it
 
 ```sh
 npm run demo
 ```
 
-Apri `http://127.0.0.1:4173` con l’estensione caricata. **Genera video di prova** crea localmente una clip di 16 secondi, con una sigla tra i secondi 3 e 9. Premi **Vai alla sigla**, poi **Skip intro**: il video deve passare a 9 secondi.
+Open `http://127.0.0.1:4173` with the extension loaded. **Generate test video** creates a local 16-second clip with an intro between seconds 3 and 9. Click **Go to intro**, then **Skip intro**: playback should seek to second 9.
 
-Il laboratorio include pulsanti per togliere i capitoli, provare il salvataggio manuale e aprire il fullscreen del contenitore. Non scarica video da servizi esterni e non testa il riconoscimento audio.
+The lab includes controls to remove chapters, try manual timing, and enter player-container fullscreen. It does not download external videos or test audio recognition.
 
-Su una pagina senza capitoli, passa il mouse sul video e apri **Skip Intro · regola sigla**. Imposta inizio e fine (intervallo di 2–300 secondi). L’intervallo viene riutilizzato per quel video; non viene applicato automaticamente ad altri episodi della serie.
+On a page without chapters, hover over the video and open **Skip Intro · adjust timing**. Set the start and end of the intro (a 2–300 second range). The timing is reused for that video, not automatically applied to other episodes.
 
-## Limiti da conoscere
+## Known limitations
 
-- Senza capitoli o metadati, occorre indicare manualmente l’intervallo. Non c’è ancora un modello che ascolta o guarda la sigla.
-- Il video deve esporre un elemento HTML5 `<video>`, una durata finita e un intervallo raggiungibile tramite `currentTime`. Dirette, player opachi, shadow DOM e pagine interne del browser non sono supportati.
-- DRM e player personalizzati possono impedire l’accesso o il salto. Non vengono aggirate protezioni, accessi o abbonamenti. Netflix, Prime Video, Disney+ e altri servizi non sono stati certificati.
-- Il fullscreen nativo dell’elemento `<video>` e Picture-in-Picture non consentono questo overlay DOM. Il fullscreen del contenitore è gestito.
-- Gli intervalli manuali sono identificati dall’URL della pagina, sorgente, durata e indice del player. URL firmati che cambiano possono richiedere una nuova impostazione. Stream diversi sullo stesso URL, con stessa durata e stesso indice, non sono distinguibili: usa **Dimentica** se il sito riutilizza questi dati.
-- Su pagine HTTP senza Web Crypto il salvataggio resta nella sessione. Gli iframe richiedono il permesso per il relativo dominio.
-- La scansione dei player avviene ogni 500 ms nelle schede visibili. Il rilevamento dai capitoli dipende dalla loro disponibilità effettiva nel player.
+- Without chapters or metadata, you must set the timing manually. There is no model listening to or watching the intro yet.
+- The player must expose an HTML5 `<video>` element, a finite duration, and a range seekable through `currentTime`. Live streams, opaque players, shadow DOM, and internal browser pages are not supported.
+- DRM and custom players may prevent access or seeking. The extension does not bypass protections, authentication, or subscriptions. Netflix, Prime Video, Disney+, and other commercial services have not been certified.
+- Native `<video>` fullscreen and Picture-in-Picture cannot display this DOM overlay. Container fullscreen is supported.
+- Manual timings are identified by page URL, media source, duration, and player index. Changing signed URLs may require setting the timing again. Different streams with the same page URL, duration, and player index cannot be distinguished: use **Forget** if a site reuses those values.
+- On HTTP pages without Web Crypto, manual timing lasts for the current session only. Embedded players require access to their own domains.
+- Players are scanned every 500 ms in visible tabs. Chapter detection depends on cues actually being available in the player.
 
-## Sviluppo e verifiche
+## Development and verification
 
 ```sh
 npx playwright install chromium firefox
@@ -72,22 +72,22 @@ npm run check
 npm run package
 ```
 
-`check` esegue test della logica, build, validazione del manifest Firefox e test del comportamento nei motori Chromium e Firefox. I test del comportamento controllano il tempo del video e simulano lo storage; un test aggiuntivo carica davvero l’estensione in Chromium e salta una clip generata nel browser. Il caricamento del componente Firefox e i player commerciali richiedono anche verifica manuale.
+`check` runs core logic tests, builds both extensions, validates the Firefox manifest, and tests behavior in Chromium and Firefox. Behavioral tests control the media clock and mock storage; an additional test loads the actual extension in Chromium and skips a clip generated in the browser. Firefox add-on installation and commercial players also require manual verification.
 
-`package` genera `artifacts/skip-intro-chrome.zip` e `artifacts/skip-intro-firefox.zip` (usa il comando `zip`). Gli archivi Firefox non sono firmati. Le build e gli artefatti sono esclusi da Git e vengono allegati alle esecuzioni CI riuscite.
+`package` creates `artifacts/skip-intro-chrome.zip` and `artifacts/skip-intro-firefox.zip` using the `zip` command. The Firefox archive is unsigned. Builds and artifacts are excluded from Git and attached to successful CI runs.
 
 ```text
-extension/       Content script, motore di rilevamento, popup e manifest base
-scripts/         Build per browser, packaging e server del laboratorio
-demo/            Clip sintetica locale con capitoli
-tests/           Test della logica e test browser
-docs/            Architettura, roadmap e privacy
+extension/       Content script, detection engine, popup, and base manifest
+scripts/         Browser builds, packaging, and local lab server
+demo/            Locally generated synthetic clip with chapters
+tests/           Core logic and browser behavior tests
+docs/            Architecture, roadmap, and privacy
 ```
 
-## Verso il riconoscimento automatico
+## Toward automatic recognition
 
-La [roadmap](docs/ROADMAP.md) descrive i prossimi passi: adapter per player, identificazione di serie/episodio e confronto di impronte audio tra episodi. Sarà necessario misurare precisione, falsi positivi, costo e limiti di accesso ai flussi prima di proporlo come riconoscimento universale.
+The [roadmap](docs/ROADMAP.md) covers player adapters, series/episode identification, and audio fingerprint comparisons across episodes. Precision, false positives, processing cost, and access restrictions must be measured before claiming universal recognition.
 
-Consulta [architettura](docs/ARCHITECTURE.md), [privacy](docs/PRIVACY.md) e [come contribuire](CONTRIBUTING.md).
+See the [architecture](docs/ARCHITECTURE.md), [privacy policy](docs/PRIVACY.md), and [contribution guide](CONTRIBUTING.md).
 
-Licenza [MIT](LICENSE).
+Licensed under [MIT](LICENSE).

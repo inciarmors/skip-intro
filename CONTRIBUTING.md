@@ -1,8 +1,8 @@
-# Contribuire
+# Contributing
 
-Apri una issue con browser, versione, URL del sito (senza token o credenziali), tipo di player, comportamento atteso e osservato. Non allegare contenuti protetti, cookie o URL firmati.
+Open an issue with your browser and version, the site URL (without tokens or credentials), player type, expected behavior, and observed behavior. Do not attach protected content, cookies, or signed URLs.
 
-Prima di una pull request:
+Before submitting a pull request:
 
 ```sh
 npm ci
@@ -10,6 +10,6 @@ npx playwright install chromium firefox
 npm run check
 ```
 
-Per una nuova strategia di rilevamento aggiungi casi con sigla, senza sigla e falsi positivi plausibili. Mantieni la logica nel motore puro quando possibile. Nessun salto senza click, richiesta di rete, telemetria o ampliamento dei permessi senza una motivazione esplicita nella proposta.
+For a new detection strategy, add examples with intros, without intros, and with plausible false positives. Keep logic in the pure detection engine where possible. Automatic skipping, network requests, telemetry, and expanded permissions require an explicit rationale in the proposal.
 
-Documenta i siti realmente provati e distingui test simulati da player reali. Le traduzioni e i miglioramenti di accessibilità sono benvenuti.
+Document the sites actually tested and distinguish simulated tests from real players. Keep all project text, interfaces, comments, documentation, and test fixtures in English. Accessibility improvements are welcome.

@@ -52,13 +52,13 @@ test("chapters offer skip only during the intro and seek on click, never automat
 });
 
 test("manual intervals persist on reload and cannot leak to another SPA episode", async ({ page }) => {
-  await page.getByRole("button", { name: "Togli capitoli" }).click();
+  await page.getByRole("button", { name: "Remove chapters" }).click();
   await page.locator("video").hover();
   await page.locator("summary").click();
-  await page.getByLabel("Inizio (secondi)").fill("12");
-  await page.getByLabel("Fine (secondi)").fill("40");
-  await page.getByRole("button", { name: "Salva", exact: true }).click();
-  await expect(page.locator("skip-intro-overlay #status")).toContainText("salvata");
+  await page.getByLabel("Start (seconds)").fill("12");
+  await page.getByLabel("End (seconds)").fill("40");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.locator("skip-intro-overlay #status")).toContainText("saved");
   await seek(page, 20);
   await expect(skip(page)).toBeVisible();
   await page.reload();
@@ -78,24 +78,24 @@ test("unseekable targets are disabled and disabling the extension hides the over
   await seek(page, 4);
   await expect(skip(page)).toBeVisible();
   await page.evaluate(() => Object.defineProperty(document.querySelector("video"), "seekable", { configurable: true, get: () => ({ length: 1, start: () => 0, end: () => 5 }) }));
-  await expect(page.getByRole("button", { name: "Sigla · attendo il video…" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Intro · waiting for video…" })).toBeDisabled();
   await page.evaluate(() => browser.storage.local.set({ enabled: false }));
   await expect(page.locator("skip-intro-overlay")).toBeHidden();
 });
 
 test("rejects invalid manual ranges and removes saved ranges", async ({ page }) => {
-  await page.getByRole("button", { name: "Togli capitoli" }).click();
+  await page.getByRole("button", { name: "Remove chapters" }).click();
   await page.locator("video").hover();
   await page.locator("summary").click();
-  await page.getByLabel("Inizio (secondi)").fill("60");
-  await page.getByLabel("Fine (secondi)").fill("30");
-  await page.getByRole("button", { name: "Salva", exact: true }).click();
+  await page.getByLabel("Start (seconds)").fill("60");
+  await page.getByLabel("End (seconds)").fill("30");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.locator("skip-intro-overlay #status")).toContainText("2–300");
-  await page.getByLabel("Inizio (secondi)").fill("10");
-  await page.getByRole("button", { name: "Salva", exact: true }).click();
+  await page.getByLabel("Start (seconds)").fill("10");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
   await seek(page, 20);
   await expect(skip(page)).toBeVisible();
-  await page.getByRole("button", { name: "Dimentica", exact: true }).click();
+  await page.getByRole("button", { name: "Forget", exact: true }).click();
   await expect(skip(page)).toBeHidden();
 });
 
