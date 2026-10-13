@@ -2,7 +2,7 @@
 
 **Straight to the story.** An automatic-only Chrome and Firefox extension with a minimal, monochrome glass button. It appears during a detected opening and skips it when clicked. There are no timing fields, marking controls, or hover panels.
 
-> **0.4.0 / experimental.** Detection uses free IntroDB and TheIntroDB APIs, player signals, and deterministic live audio/visual fingerprints. No AI, no extra video downloads, and no saved media files. Coverage is not universal: unfamiliar openings, inaccessible media, and ambiguous sequences may not be recognized. Recurrence is evidence of repeated content, not proof that it is an intro.
+> **0.4.1 / experimental.** Detection uses free IntroDB and TheIntroDB APIs, player signals, and deterministic live audio/visual fingerprints. No AI, no extra video downloads, and no saved media files. Coverage is not universal: unfamiliar openings, inaccessible media, and ambiguous sequences may not be recognized. Recurrence is evidence of repeated content, not proof that it is an intro.
 
 ## Detection
 
@@ -63,7 +63,7 @@ The design follows a black-and-white palette with a frosted white button, dark i
 
 ## Background lifecycle
 
-Chrome runs a Manifest V3 service worker; Firefox runs a non-persistent event page (`persistent: false`). The browser suspends these contexts when idle. Being listed in a debug screen does not mean the extension is continuously analysing video.
+Chrome runs a Manifest V3 service worker; Firefox uses the Manifest V3 event-page lifecycle without a `persistent` property. The browser suspends these contexts when idle. Being listed in a debug screen does not mean the extension is continuously analysing video.
 
 OFF stops active extension work. The small settings/message listeners remain registered so ON can work again; the browser controls unloading the background context. To fully unload the add-on, disable it through the browser's extension manager. Keeping its debugger open may keep a background context alive.
 

@@ -6,7 +6,8 @@ for (const browser of ["chrome", "firefox"]) {
   await mkdir(target, { recursive: true });
   await cp(new URL("../extension/", import.meta.url), target, { recursive: true });
   const manifest = structuredClone(base);
-  manifest.background = browser === "firefox" ? { scripts: ["episode.js", "introdb.js", "background.js"], persistent: false } : { service_worker: "background.js" };
+  // Firefox MV3 manages event-page lifetime; omit the MV2-only persistent flag.
+  manifest.background = browser === "firefox" ? { scripts: ["episode.js", "introdb.js", "background.js"] } : { service_worker: "background.js" };
   if (browser === "firefox") manifest.browser_specific_settings = {
     gecko: { id: "skip-intro@inciarmors", strict_min_version: "142.0", data_collection_permissions: { required: ["websiteContent"] } }
   };

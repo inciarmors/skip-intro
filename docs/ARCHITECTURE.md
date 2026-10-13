@@ -71,7 +71,7 @@ Mutation discovery and bounded periodic checks handle new players, routes, frame
 
 ## OFF and browser lifecycle
 
-The Chrome background is a service worker; the Firefox background is explicitly non-persistent. Neither has an interval or keep-alive loop. Settings and runtime-message listeners are registered synchronously. No tab-navigation listener wakes the background while OFF. Session caches survive background suspension; the enabled state is read before any metadata lookup.
+The Chrome background is a service worker; Firefox manages background lifetime through its Manifest V3 event-page lifecycle. The generated manifest omits `persistent`, which causes an unsupported-property warning in Firefox MV3. Neither background has an interval or keep-alive loop. Settings and runtime-message listeners are registered synchronously. No tab-navigation listener wakes the background while OFF. Session caches survive background suspension; the enabled state is read before any metadata lookup.
 
 The content controller starts its polling interval and DOM/player observers only when enabled and visible. OFF cancels intervals, animation frames, and click cooldowns; disconnects observers and player/scroll/resize listeners; restores text-track modes; stops analysis and catalog state; and removes the overlay. Visibility changes suspend and resume active detection. BFCache page transitions are handled through pagehide/pageshow.
 

@@ -1,4 +1,4 @@
-# Privacy — version 0.4.0
+# Privacy — version 0.4.1
 
 Skip Intro has no accounts, analytics, custom backend, or AI service. It calls free public catalog APIs for episode timings. Audio, images, videos, and fingerprints never leave the browser.
 
