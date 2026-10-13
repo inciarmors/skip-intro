@@ -2,7 +2,7 @@
 
 **Straight to the story.** An automatic-only Chrome and Firefox extension with a minimal, monochrome glass button. It appears during a detected opening and skips it when clicked. There are no timing fields, marking controls, or hover panels.
 
-> **0.2.0 / experimental.** Detection uses player signals and deterministic, live audio/visual fingerprints. No AI, no extra video downloads, and no saved media files. Coverage is not universal: unfamiliar openings, inaccessible media, and ambiguous sequences may not be recognized. Recurrence is evidence of repeated content, not proof that it is an intro.
+> **0.3.0 / experimental.** Detection uses the free IntroDB API, player signals, and deterministic live audio/visual fingerprints. No AI, no extra video downloads, and no saved media files. Coverage is not universal: unfamiliar openings, inaccessible media, and ambiguous sequences may not be recognized. Recurrence is evidence of repeated content, not proof that it is an intro.
 
 ## Detection
 
@@ -10,11 +10,12 @@ The extension tries these sources in order:
 
 1. **Native player controls.** A visible, enabled, explicitly labeled intro button inside the selected player. The extension forwards your click to that control; it does not invent an end time.
 2. **Timed player data.** Intro chapter cues, metadata cues, explicit timing attributes, and Schema.org intro clips tied to the exact media source.
-3. **Live recurring sequences.** During normal playback, small visual/audio descriptors are compared with earlier episodes of an identifiable series. Once a sufficiently distinctive sequence has recurred across two different episodes, its pattern can identify a subsequent occurrence.
+3. **IntroDB timestamps.** Explicit page metadata identifies the IMDb series, season, and episode. The background script calls the public `/segments` API without an account or API key. Only an `intro` segment is accepted; credits and recaps are never substituted.
+4. **Live recurring sequences.** During normal playback, small visual/audio descriptors are compared with earlier episodes of an identifiable series. Once a sufficiently distinctive sequence has recurred across two different episodes, its pattern can identify a subsequent occurrence.
 
-On a new series without player metadata, the extension must first observe matching openings across episodes. A learned opening typically needs several seconds of matching playback before the button appears. It cannot know the ending of an unseen intro from a single live frame. Silence, black frames, static imagery, pauses, and discontinuous playback are rejected as learning evidence.
+On a new series without player metadata or an IntroDB result, the extension must first observe matching openings across episodes. A learned opening typically needs several seconds of matching playback before the button appears. It cannot know the ending of an unseen intro from a single live frame. Silence, black frames, static imagery, pauses, and discontinuous playback are rejected as learning evidence.
 
-The third strategy is an experimental deterministic matcher, not a trained model. Recaps or other repeated opening material may still be misclassified. Player-provided boundaries are preferable whenever available.
+The fourth strategy is an experimental deterministic matcher, not a trained model. Recaps or other repeated opening material may still be misclassified. Player-provided boundaries are preferable whenever available.
 
 ## What stays in the browser
 
@@ -23,7 +24,9 @@ The third strategy is an experimental deterministic matcher, not a trained model
 - Accessible audio becomes a compact 32-band spectral descriptor through Web Audio.
 - Raw frames and audio buffers are not persisted, recorded, uploaded, or assembled into video files.
 - Local storage contains the enabled setting and a bounded library of numeric fingerprints with hashed identities. It retains at most twelve series and four sampled episodes/patterns per series.
-- No server, external recognition service, AI model, media fetcher, or download permission is used.
+- IntroDB receives only the IMDb series ID, season, and episode through HTTPS. No site URL, title, cookies, fingerprint, or media is sent. The service also sees the normal network connection information, including your IP address.
+- A temporary browser-session cache holds at most 100 episode results: successful lookups for six hours, missing intros for fifteen minutes, and failures for thirty seconds. It is cleared when the browser session ends. There is no database replication or bulk fetching.
+- No custom backend, AI model, media fetcher, or download permission is used.
 
 Normal playback still transfers and buffers media through the website's own player. The extension adds no independent video download. See [privacy](docs/PRIVACY.md) and [architecture](docs/ARCHITECTURE.md).
 
@@ -48,13 +51,13 @@ npm run build
 
 1. Open `about:debugging#/runtime/this-firefox`.
 2. Choose **Load Temporary Add-on** and select `dist/firefox/manifest.json`.
-3. Grant the requested site access and reload video pages. Temporary installation ends when Firefox closes.
+3. Grant the requested site access and episode-metadata transmission permission, then reload video pages. Temporary installation ends when Firefox closes.
 
 It is not published in the extension stores. Persistent Firefox installation requires Mozilla signing.
 
 ## Use
 
-Enable **Automatic detection** in the popup, then watch normally. When an actionable intro is detected, **Skip intro** appears over the player. Click it to advance; playback is never skipped without your click. No signal means no overlay.
+Enable **Automatic detection** in the popup, then watch normally. When an actionable intro is detected, **Skip intro** appears over the player. Click it to advance; playback is never skipped without your click. No signal means no overlay. The popup reports missing episode identity, missing IntroDB timings, temporary API failures, or a timing ready to use. After updating, reload the extension and the video page.
 
 The design follows a black-and-white palette with a frosted white button, dark icon, subtle glass surfaces, and reduced-motion support. All project text and interfaces are in English.
 
@@ -67,6 +70,8 @@ The design follows a black-and-white palette with a frosted white button, dark i
 - The inferred end is conservative: the last confirmed matching sample. It may leave a small part of an opening unskipped. Music or visual repetition alone does not establish semantic certainty.
 - Closed shadow roots, browser-internal pages, native video-element fullscreen, and Picture-in-Picture are unsupported. Open shadow roots and fullscreen player containers are handled.
 - A native player may reject a programmatic forwarded click. Small or hidden videos and unseekable ranges do not receive a button.
+- StreamingCommunity watch-page metadata has an adapter for its observed `Titles/Watch` format. Other sites need explicit Schema.org `TVEpisode` metadata containing the series IMDb ID and episode numbers. A title alone is not enough.
+- IntroDB coverage and timing accuracy vary by episode and edition. The extension uses the returned boundaries without assuming that different cuts share the same timing.
 - The requested StreamingCommunity domain is an evaluation target, not a certified integration. Live playback validation is left to the user; see [site notes](docs/SITE-SUPPORT.md).
 
 ## Local signal lab
@@ -93,11 +98,17 @@ The suite includes pure signal/fingerprint fixtures, controlled browser scenario
 
 ```text
 extension/core.js         Validated player signals and seek boundaries
+extension/episode.js      Explicit episode metadata extraction
+extension/introdb.js      IntroDB response validation
+extension/background.js   Free API requests, session cache, and frame context
+extension/catalog.js      Current player and catalog result binding
 extension/fingerprint.js  Deterministic sequence matcher
 extension/analysis.js     In-browser sampling and bounded fingerprint storage
 extension/content.js      Player discovery, automatic button, and click handling
 extension/popup.*         On/off control and monochrome glass interface
 demo/                     Synthetic signal lab
 ```
+
+Intro data provided by [IntroDB](https://introdb.app). API documentation: [public segment endpoints](https://introdb.app/docs/api).
 
 [Roadmap](docs/ROADMAP.md) · [Architecture](docs/ARCHITECTURE.md) · [Privacy](docs/PRIVACY.md) · [MIT license](LICENSE)

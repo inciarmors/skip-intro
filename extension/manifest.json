@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Skip Intro",
-  "version": "0.2.0",
-  "description": "Automatic intro detection with player signals and live browser fingerprints. No video downloads, no AI.",
+  "version": "0.3.0",
+  "description": "Skip intros with IntroDB timestamps, player signals, and live browser fingerprints. No video downloads or AI.",
   "permissions": [
     "storage"
   ],
@@ -25,6 +25,8 @@
       "run_at": "document_idle",
       "js": [
         "core.js",
+        "episode.js",
+        "catalog.js",
         "fingerprint.js",
         "analysis.js",
         "content.js"

@@ -22,3 +22,12 @@
 - [ ] Store submission, signing, and final accessibility checks.
 
 Universal first-encounter detection is not promised. If a player supplies no boundaries and an opening has not been observed before, live matching cannot infer a trustworthy future ending. Conservative non-detection is preferable to inventing a skip duration.
+
+## 0.3 — Free IntroDB API
+
+- [x] Individual episode lookups through the public /segments endpoint, without an API key.
+- [x] Explicit watch-page and Schema.org episode identity extraction.
+- [x] Owning-page metadata shared with player frames through extension messaging.
+- [x] Bounded browser-session caching, request coalescing, timeout, and rate-limit handling.
+- [x] Popup lookup diagnostics and updated metadata-transmission disclosure.
+- [ ] User verification of actual playback and timing alignment across episode editions.

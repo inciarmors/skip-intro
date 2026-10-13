@@ -1,6 +1,20 @@
 # Architecture
 
-Manifest V3, with no backend, remote scripts, or runtime dependencies. Ordered content scripts share an isolated-world namespace: `core.js`, `fingerprint.js`, `analysis.js`, and `content.js`. A tiny background handler shares the owning tab's title with this extension's player frames using the existing host permissions. It accepts only messages from this extension, performs no network requests, and shares no page data with website scripts. The only privileged API permission is `storage`.
+Manifest V3, with no custom backend, remote scripts, or runtime dependencies. Ordered content scripts share an isolated-world namespace: `core.js`, `episode.js`, `catalog.js`, `fingerprint.js`, `analysis.js`, and `content.js`. The only privileged API permission is `storage`.
+
+## IntroDB integration
+
+`episode.js` extracts a complete IMDb series ID, season number, and episode number from observed StreamingCommunity/Inertia `Titles/Watch` page metadata or unambiguous Schema.org `TVEpisode` structured data. Internal site IDs and season IDs are never used as episode numbers. The series IMDb ID must be explicit; the extension does not guess it from titles, scrape search engines, or ask users for timings.
+
+The watch-page adapter reads `props.title.imdb_id`, `props.episode.number`, and `props.episode.season.number`. It checks the page URL and rejects episode-style titles that contradict those numbers. Inertia navigation events refresh available page context; stale initial metadata is rejected after a route change. If the site's navigation no longer exposes usable metadata, reload the watch page.
+
+Embedded player frames ask the background script for a lookup. The background reads fresh context from frame 0 through extension messaging, combines it with any local identity, and rejects conflicting identities. No page context is exposed through a web-accessible script or a website message handler. Missing identity causes no API request.
+
+The background requests only `https://api.introdb.app/segments?imdb_id=...&season=...&episode=...`, with credentials omitted, no referrer, redirects rejected, and an eight-second timeout. Returned identity must match the request. Milliseconds are converted to seconds once; only finite intro boundaries of 2–300 seconds are accepted. Null intro or HTTP 404 means no catalog timing, even when an outro is present. The player duration and seekable range are checked again before displaying the button and seeking.
+
+Requests for the same episode are coalesced. At most 100 response entries live in browser-session storage, with a six-hour positive TTL, fifteen-minute missing-result TTL, and thirty-second error TTL. HTTP 429 honors Retry-After with a bounded cooldown. There are no API keys, submissions, database copies, or bulk catalog requests. Disabling detection aborts active API fetches. Lookup state is shown in the popup.
+
+Native controls and player metadata take precedence over IntroDB; local recurrence is a fallback. Catalog state resets on player/source/route changes, is refreshed while the player is visible, and expires if background replies stop. Different edits of an episode can still have different timings; catalog availability is not proof that the returned timing matches every release.
 
 ## Player signals
 

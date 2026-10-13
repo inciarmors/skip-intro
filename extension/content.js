@@ -5,6 +5,7 @@
   globalThis.__skipIntroInstalled = true;
   const core = globalThis.SkipIntroCore;
   const analysis = globalThis.SkipIntroAnalysis;
+  const catalog = globalThis.SkipIntroCatalog;
   const host = document.createElement("skip-intro-overlay");
   host.style.cssText = "all:initial;position:fixed!important;z-index:2147483647!important;display:none;";
   const shadow = host.attachShadow({ mode: "open" });
@@ -156,15 +157,16 @@
   function detect(video, videos) {
     const native = findNative(video, videos);
     if (native) return { type: "native", element: native };
-    const learned = analysis?.getCandidate();
-    const intro = [...readRanges(video), ...(learned ? [learned] : [])].find(range => core.seekTarget(range, video.currentTime, video.duration, seekable(video)) !== null);
+    const database = catalog?.getCandidate();
+    const learned = database ? null : analysis?.getCandidate();
+    const intro = [...readRanges(video), ...(database ? [database] : []), ...(learned ? [learned] : [])].find(range => core.seekTarget(range, video.currentTime, video.duration, seekable(video)) !== null);
     return intro ? { type: "range", intro } : null;
   }
 
   function tick() {
     candidate = null;
     host.style.display = "none";
-    if (!enabled || document.hidden) { analysis?.stop(); return; }
+    if (!enabled || document.hidden) { analysis?.stop(); catalog?.stop(); return; }
     // Also discover roots attached to existing elements after initial insertion.
     if (performance.now() - lastRootScan > 3000) {
       for (const [root, observer] of roots) {
@@ -183,7 +185,8 @@
     if (next !== selected || route !== location.href || mediaSource !== next?.currentSrc) {
       restoreTracks(); selected = next; route = location.href; mediaSource = next?.currentSrc || "";
     }
-    if (selected && advertPlaying(selected)) { analysis?.stop(); return; }
+    if (selected && advertPlaying(selected)) { analysis?.stop(); catalog?.stop(); return; }
+    catalog?.select(selected);
     void analysis?.select(selected);
     if (!selected || busy) return;
     candidate = detect(selected, videos);

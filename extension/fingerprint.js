@@ -103,7 +103,12 @@
         if (reference.id === this.id) continue;
         for (let j = WINDOW - 1; j < reference.samples.length; j++) {
           if (windowMatch(this.window, reference.samples.slice(j - WINDOW + 1, j + 1))) {
-            this.run = { reference, startIndex: j - WINDOW + 1, lastIndex: j, offset: sample.t - reference.samples[j].t, misses: 0 };
+            // A window tolerates one mismatch; never include that mismatch as a boundary.
+            let first = 0, last = WINDOW - 1;
+            const base = j - WINDOW + 1;
+            while (first < last && !similar(this.window[first], reference.samples[base + first])) first++;
+            while (last > first && !similar(this.window[last], reference.samples[base + last])) last--;
+            this.run = { reference, startIndex: base + first, lastIndex: base + last, offset: sample.t - reference.samples[j].t, misses: WINDOW - 1 - last };
             return;
           }
         }
