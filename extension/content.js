@@ -239,7 +239,7 @@
     const height = Math.max(52, Math.min(anchor?.height || 52, 76));
     host.style.width = `${width}px`; host.style.height = `${height}px`;
     host.style.left = `${Math.max(8, Math.min(innerWidth - width - 8, (anchor?.right || rect.right - 24) - width))}px`;
-    host.style.top = `${Math.max(8, Math.min(innerHeight - height - 8, anchor?.top ?? rect.bottom - height - 64))}px`;
+    host.style.top = `${Math.max(8, Math.min(innerHeight - height - 8, (anchor?.top ?? rect.bottom - height - 64) - 16))}px`;
     host.style.display = "block";
   }
 
