@@ -53,6 +53,56 @@
     }
     return intros.sort((a, b) => a.start - b.start);
   }
+  const animeSkipEndpoint = "https://api.anime-skip.com/graphql";
+  // The official client README explicitly publishes this shared, rate-limited ID.
+  const animeSkipHeaders = { "Content-Type": "application/json", "X-Client-ID": "ZGfO0sMF3eCwLYf8yMSCJjlynwNGRXWE" };
+  const graphRequest = (url, query, variables, headers = { "Content-Type": "application/json" }) => ({ url, method: "POST", headers, body: JSON.stringify({ query, variables }) });
+  function graphData(value) {
+    if (!value?.data || value.errors?.length) throw new Error("Catalog query failed");
+    return value.data;
+  }
+  function animeEpisodeMatches(value, episode, durationMs) {
+    return value && (String(value.season) === String(episode.season) || value.season === null && episode.season === 1) && String(value.number) === String(episode.episode) && Number.isFinite(value.baseDuration) && value.baseDuration > 0 && Math.abs(value.baseDuration * 1000 - durationMs) <= 2000;
+  }
+  function parseAnimeSkip(value, expectedId, episode, durationMs) {
+    const data = graphData(value).findEpisode;
+    if (!data || data.id !== expectedId || !animeEpisodeMatches(data, episode, durationMs)) throw new Error("Unexpected anime episode");
+    if (!Array.isArray(data.timestamps) || data.timestamps.length > 500) throw new Error("Invalid anime timestamps");
+    const stamps = [...data.timestamps].sort((a, b) => a.at - b.at);
+    if (stamps.some((stamp, index) => !Number.isFinite(stamp.at) || stamp.at < 0 || stamp.at * 1000 > durationMs || index && stamp.at === stamps[index - 1].at)) throw new Error("Ambiguous anime boundaries");
+    const intros = [];
+    for (let index = 0; index < stamps.length - 1; index++) {
+      if (stamps[index].typeId !== "14550023-2589-46f0-bfb4-152976506b4c") continue;
+      const start = stamps[index].at, end = stamps[index + 1].at;
+      if (end - start >= 2 && end - start <= 300) intros.push({ start, end, source: "anime-skip" });
+    }
+    return intros;
+  }
+  async function resolveAnimeSkip(episode, durationMs, request) {
+    let anilistId = episode.anilistId;
+    if (!anilistId) {
+      const mapping = graphData(await request(graphRequest("https://graphql.anilist.co", "query($id:Int!){Media(idMal:$id,type:ANIME){id idMal}}", { id: episode.malId }))).Media;
+      if (!mapping) return [];
+      if (mapping.idMal !== episode.malId || !Number.isSafeInteger(mapping.id) || mapping.id < 1 || mapping.id > 10000000) throw new Error("Invalid anime ID mapping");
+      anilistId = mapping.id;
+    }
+    const data = graphData(await request(graphRequest(animeSkipEndpoint, "query($id:String!){findShowsByExternalId(service:ANILIST,serviceId:$id){externalLinks{service serviceId} episodes{id season number baseDuration}}}", { id: String(anilistId) }, animeSkipHeaders)));
+    const shows = data.findShowsByExternalId;
+    if (!Array.isArray(shows) || shows.length > 20) throw new Error("Invalid anime show list");
+    const matches = new Map();
+    for (const show of shows) {
+      if (!Array.isArray(show.externalLinks) || !show.externalLinks.some(link => link.service === "anilist.co" && link.serviceId === String(anilistId))) throw new Error("Unexpected anime show");
+      if (!Array.isArray(show.episodes) || show.episodes.length > 3000) throw new Error("Invalid anime episode list");
+      for (const item of show.episodes) {
+        if (typeof item.id === "string" && /^[\da-f-]{36}$/i.test(item.id) && animeEpisodeMatches(item, episode, durationMs)) matches.set(item.id, item);
+      }
+    }
+    // Duplicate editions that cannot be distinguished by duration remain ambiguous.
+    if (matches.size !== 1) return [];
+    const id = matches.keys().next().value;
+    const timing = await request(graphRequest(animeSkipEndpoint, "query($id:ID!){findEpisode(episodeId:$id){id season number baseDuration timestamps{at typeId}}}", { id }, animeSkipHeaders));
+    return parseAnimeSkip(timing, id, episode, durationMs);
+  }
   const providers = Object.freeze([
     {
       id: "introdb", name: "IntroDB",
@@ -66,7 +116,7 @@
     },
     {
       id: "theintrodb", name: "TheIntroDB",
-      supports: episode => Boolean(episode.imdbId) && episode.season >= 1 && (episode.tmdbId || /^tt\d{7,8}$/.test(episode.imdbId)),
+      supports: episode => episode.season >= 1 && (episode.tmdbId || /^tt\d{7,8}$/.test(episode.imdbId)),
       cacheKey: (episode, durationMs) => `${episode.tmdbId || 0}:${durationMs || 0}`,
       url(episode, durationMs) {
         const url = new URL("https://api.theintrodb.org/v3/media");
@@ -101,7 +151,13 @@
         return url.href;
       },
       parse: parseAniSkip
+    },
+    {
+      id: "anime-skip", name: "Anime Skip", timeoutMs: 12000,
+      supports: (episode, durationMs) => Boolean((episode.malId || episode.anilistId) && durationMs),
+      cacheKey: (episode, durationMs) => `${episode.malId || 0}:${episode.anilistId || 0}:${durationMs}`,
+      resolve: resolveAnimeSkip
     }
   ]);
-  globalThis.SkipIntroDB = Object.freeze({ parseResponse, parseTheIntroDB, parseSkipDB, parseAniSkip, providers });
+  globalThis.SkipIntroDB = Object.freeze({ parseResponse, parseTheIntroDB, parseSkipDB, parseAniSkip, parseAnimeSkip, providers });
 })();

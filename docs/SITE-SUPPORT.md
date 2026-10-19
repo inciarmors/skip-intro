@@ -1,5 +1,35 @@
 # Site support notes
 
+## FMHY scope in version 0.6
+
+The [FMHY video directory](https://fmhy.net/video) was reviewed on October 19, 2026. It lists independent sites, shared embeds, live channels, and native apps. This extension operates in browser pages with an accessible HTML5 player. Directory membership alone is not a compatibility signal.
+
+The following identity paths are implemented. Route contracts and metadata were inspected; live playback on these sites has not been tested by the project.
+
+| Site or player family | Episode identity path | Evidence |
+| --- | --- | --- |
+| StreamingCommunity | Inertia `Titles/Watch` page metadata | Observed page structure |
+| Flixer (`flixer.gd`, `.su`, `.cx`) and Flixor (`flixor.ru`) | `/watch/tv/{tmdbId}/{season}/{episode}` | Public application route definitions inspected October 19 |
+| VidLink | `/tv/{tmdbId}/{season}/{episode}` and `/anime/{malId}/{episode}/{subOrDub}` | [Official documentation](https://vidlink.pro) |
+| VixSrc | `/tv/{imdbOrTmdbId}/{season}/{episode}` | [Official documentation](https://vixsrc.to) |
+| VidFast | `/tv/{imdbOrTmdbId}/{season}/{episode}` on `.pro` and `.vc` | [Official documentation](https://vidfast.vc) |
+| Vidking | `/embed/tv/{tmdbId}/{season}/{episode}` | [Official documentation](https://www.vidking.net) |
+| VidSrc | Complete episode routes on `.to`, `.me`, `.xyz`, `.sh` and mirrors named in `episode.js` | [Episode contract](https://vidsrc.to), [current domains](https://vidsrc.sh) |
+| Any site embedding these players | Same identity, inherited along the selected player's actual ancestor chain | No parent-domain allowlist required |
+| Any site with canonical URL fields | Explicit `imdb_id`/`imdb`, `tmdb_id`/`tmdb`, `mal_id`, or `anilist_id`, plus `season` and `episode` | Arbitrary numeric `id` is ignored |
+| Any site with episode structured data | JSON-LD `TVEpisode` with canonical series/season links and episode numbers | Generic metadata adapter |
+| Any site with a descriptive episode title | `Show S01E02`, `Show Season 1 Episode 2`, or `Show 1x02` | TVmaze exact-name identification; ambiguous matches rejected |
+
+TMDB-only pages can now use TheIntroDB without IMDb. IMDb-only catalogs are skipped until that ID is available. Title search runs only when canonical identity is absent, never to override conflicting IDs. A year such as `(2008)` can disambiguate a remake. Translated names, missing episode numbers, and different numbering schemes may still fail.
+
+Nested frames require the new `webNavigation` permission. Only the requesting player's ancestors supply identity, not sibling advertisements or unrelated tabs. A changed frame, route, or identity invalidates an outstanding result. Reload the extension and video page after updating and grant the new permission when prompted.
+
+### Still unverified or unsupported
+
+Movy's public title pages were readable but do not establish a complete episode route by themselves. Rive could not be inspected reliably over the available HTTPS connection. Neither is claimed as a dedicated integration. Generic title/metadata or supported embedded-player paths may still work there. Other FMHY sites remain unverified unless they expose one of the contracts above.
+
+Live TV without a seekable episode, native apps outside the browser, opaque players, missing timings, and protected/inaccessible media remain outside these guarantees. FMHY is not downloaded or consulted at runtime. There is no claim that every listed site works, or that adding a domain alone fixes playback.
+
 ## StreamingCommunity
 
 Target supplied by the user: `https://streamingcommunityz.shiksha/`.
@@ -15,7 +45,7 @@ These are database responses, not verified video boundaries. Different editions 
 
 ## Other sites
 
-Explicit Schema.org `TVEpisode` data is supported when it includes the series IMDb URL/identifier, season number, and episode number. Ambiguous metadata and title-only guesses do not trigger API calls. Native controls, timed player data, and local fingerprint learning remain available independently of IntroDB.
+Explicit Schema.org `TVEpisode` data supports IMDb/TMDB series links and MyAnimeList/AniList season links with season and episode numbers. Complete episode titles can use the strict TVmaze resolver described above. Native controls, timed player data, and local fingerprint learning remain available independently of IntroDB.
 
 ## User evaluation
 

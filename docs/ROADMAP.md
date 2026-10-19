@@ -50,3 +50,12 @@ Universal first-encounter detection is not promised. If a player supplies no bou
 - [x] Document unavailable sources and identity requirements.
 - [ ] Measure real playback coverage and false positives across a representative episode set.
 - [ ] Add verified anime site adapters and episode mappings where metadata is insufficient.
+
+## 0.6 — Cross-site identity and another anime fallback
+
+- [x] TMDB-only catalog lookups and documented embed URL adapters.
+- [x] Flixer watch routes and canonical namespaced URL parameters.
+- [x] Selected-player ancestry for nested cross-origin frames, with stale-response guards.
+- [x] Site-independent exact TVmaze title identification when episode numbers are explicit.
+- [x] Anime Skip fallback with exact AniList mapping and release matching.
+- [ ] Validate live playback across FMHY sites; implemented identity contracts are not a universal compatibility guarantee.

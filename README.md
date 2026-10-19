@@ -2,7 +2,7 @@
 
 An automatic-only Chrome and Firefox extension with a minimal, monochrome glass button. It appears during a detected opening and skips it when clicked. There are no timing fields, marking controls, or hover panels.
 
-> **0.5.0 / experimental.** Detection uses free IntroDB, TheIntroDB, SkipDB, and AniSkip APIs, player signals, and deterministic live audio/visual fingerprints. No AI, no extra video downloads, and no saved media files. Coverage is not universal: unfamiliar openings, inaccessible media, and ambiguous sequences may not be recognized. Recurrence is evidence of repeated content, not proof that it is an intro.
+> **0.6.0 / experimental.** Detection uses free IntroDB, TheIntroDB, SkipDB, AniSkip, and Anime Skip APIs, player signals, and deterministic live audio/visual fingerprints. No AI, no extra video downloads, and no saved media files. Coverage is not universal: unfamiliar openings, inaccessible media, and ambiguous sequences may not be recognized. Recurrence is evidence of repeated content, not proof that it is an intro.
 
 ## Detection
 
@@ -10,7 +10,7 @@ The extension tries these sources in order:
 
 1. **Native player controls.** A visible, enabled, explicitly labeled intro button inside the selected player. The extension forwards your click to that control; it does not invent an end time.
 2. **Timed player data.** Intro chapter cues, metadata cues, explicit timing attributes, and Schema.org intro clips tied to the exact media source.
-3. **Catalog timestamps.** Explicit page metadata identifies the IMDb series, season, and episode, plus TMDB when available. The background checks IntroDB, TheIntroDB, and SkipDB in order until it finds an intro. AniSkip is an additional anime fallback when the page explicitly identifies the MyAnimeList season/cour and episode. All four public read APIs work without an account or API key. Only intro segments are accepted; credits and recaps are never substituted. The popup names the provider that supplied the timing.
+3. **Catalog timestamps.** Episode identity comes from page metadata, documented player URLs, or an exact, unique TVmaze show-name match when the page title includes season and episode numbers. IMDb, TMDB, MyAnimeList, and AniList identities are supported. The background checks IntroDB, TheIntroDB, and SkipDB in order until it finds an intro, skipping catalogs whose required IDs are unavailable. TMDB-only pages can query TheIntroDB directly. AniSkip is an additional anime fallback when the page explicitly identifies the MyAnimeList season/cour and episode. Anime Skip provides a fifth fallback using exact AniList mappings and a matching release duration. No user account or personal API key is required. Only intro segments are accepted; credits and recaps are never substituted. The popup names the provider that supplied the timing.
 4. **Live recurring sequences.** During normal playback, small visual/audio descriptors are compared with earlier episodes of an identifiable series. Once a sufficiently distinctive sequence has recurred across two different episodes, its pattern can identify a subsequent occurrence.
 
 On a new series without player metadata or a catalog result, the extension must first observe matching openings across episodes. A learned opening typically needs several seconds of matching playback before the button appears. It cannot know the ending of an unseen intro from a single live frame. Silence, black frames, static imagery, pauses, and discontinuous playback are rejected as learning evidence.
@@ -24,8 +24,8 @@ The fourth strategy is an experimental deterministic matcher, not a trained mode
 - Accessible audio becomes a compact 32-band spectral descriptor through Web Audio.
 - Raw frames and audio buffers are not persisted, recorded, uploaded, or assembled into video files.
 - Local storage contains the enabled setting and a bounded library of numeric fingerprints with hashed identities. It retains at most twelve series and four sampled episodes/patterns per series.
-- IntroDB receives the IMDb series ID, season, and episode through HTTPS. TheIntroDB receives TMDB (or IMDb), season, episode, and video duration for release matching, only when fallback is needed. SkipDB receives IMDb, season, episode, and optional duration in seconds. AniSkip receives the explicit MyAnimeList ID, episode number, and duration in seconds. No site URL, title, cookies, fingerprint, or media is sent. Each contacted service also sees the normal network connection information, including your IP address.
-- A temporary browser-session cache holds at most 100 provider/episode results: successful lookups for six hours, missing intros for fifteen minutes, and failures for thirty seconds. It is cleared when the browser session ends. There is no database replication or bulk fetching.
+- IntroDB receives the IMDb series ID, season, and episode through HTTPS. TheIntroDB receives TMDB (or IMDb), season, episode, and video duration for release matching, only when fallback is needed. SkipDB receives IMDb, season, episode, and optional duration in seconds. AniSkip receives the explicit MyAnimeList ID, episode number, and duration in seconds. Anime Skip receives AniList and internal episode IDs; AniList may receive a MAL ID for exact mapping. TVmaze receives the extracted show name when canonical IDs are missing. No site URL, full page title, cookies, fingerprint, or media is sent. Each contacted service also sees the normal network connection information, including your IP address.
+- A temporary browser-session cache holds at most 100 provider/episode results: successful lookups for six hours, missing intros for fifteen minutes, and failures for thirty seconds. It is cleared when the browser session ends. Show-name identification shares this bounded session cache. There is no database replication; Anime Skip reads a matching show’s episode index before requesting timestamps for one episode.
 - No custom backend, AI model, media fetcher, or download permission is used.
 
 Normal playback still transfers and buffers media through the website's own player. The extension adds no independent video download. See [privacy](docs/PRIVACY.md) and [architecture](docs/ARCHITECTURE.md).
@@ -51,7 +51,7 @@ npm run build
 
 1. Open `about:debugging#/runtime/this-firefox`.
 2. Choose **Load Temporary Add-on** and select `dist/firefox/manifest.json`.
-3. Grant the requested site access and episode-metadata transmission permission, then reload video pages. Temporary installation ends when Firefox closes.
+3. Grant the requested site access, frame-navigation access, and episode-metadata transmission permission, then reload video pages. Temporary installation ends when Firefox closes.
 
 It is not published in the extension stores. Persistent Firefox installation requires Mozilla signing.
 
@@ -78,7 +78,7 @@ The manifest includes PNG icons at 16, 32, 48, 96, and 128 pixels, generated fro
 - The inferred end is conservative: the last confirmed matching sample. It may leave a small part of an opening unskipped. Music or visual repetition alone does not establish semantic certainty.
 - Closed shadow roots, browser-internal pages, native video-element fullscreen, and Picture-in-Picture are unsupported. Open shadow roots and fullscreen player containers are handled.
 - A native player may reject a programmatic forwarded click. Small or hidden videos and unseekable ranges do not receive a button.
-- StreamingCommunity watch-page metadata has an adapter for its observed `Titles/Watch` format. Other sites need explicit Schema.org `TVEpisode` metadata containing the series IMDb ID or a supported MyAnimeList season URL, plus season and episode numbers. A title alone is not enough.
+- StreamingCommunity watch-page metadata has an adapter for its observed `Titles/Watch` format. Other sites can use supported player URLs, structured data, explicit namespaced URL parameters, or a page title such as `The Mentalist S1E2` that resolves uniquely through TVmaze. Parent frame identity is carried into nested players. See the [FMHY compatibility scope](docs/SITE-SUPPORT.md); this does not certify every listed site.
 - Catalog coverage and timing accuracy vary by episode and edition. TheIntroDB uses the player duration as a release-selection hint; it may return its most popular version if no matching release exists. The extension uses the returned boundaries without assuming that different cuts share the same timing.
 - The requested StreamingCommunity domain is an evaluation target, not a certified integration. Live playback validation is left to the user; see [site notes](docs/SITE-SUPPORT.md).
 
@@ -107,7 +107,7 @@ The suite includes pure signal/fingerprint fixtures, controlled browser scenario
 ```text
 extension/core.js         Validated player signals and seek boundaries
 extension/episode.js      Explicit episode metadata extraction
-extension/introdb.js      Four free catalog provider contracts
+extension/introdb.js      Five free catalog provider contracts
 extension/background.js   Free API fallback, cancellation, and session cache
 extension/catalog.js      Current player and catalog result binding
 extension/fingerprint.js  Deterministic sequence matcher
@@ -118,6 +118,6 @@ extension/icons/         Skip glyph icons for toolbar and extension management
 demo/                     Synthetic signal lab
 ```
 
-Intro data provided by [IntroDB](https://introdb.app), [TheIntroDB](https://theintrodb.org), [SkipDB](https://skipdb.tv), and [AniSkip](https://github.com/aniskip). SkipDB data is licensed under [ODbL 1.0 + Service Provider Reciprocity](https://skipdb.tv/license); the extension uses individual read-only lookups and does not build a database from these results. See the [catalog comparison and integration requirements](docs/CATALOGS.md). Free API access does not imply unrestricted database redistribution.
+Intro data provided by [IntroDB](https://introdb.app), [TheIntroDB](https://theintrodb.org), [SkipDB](https://skipdb.tv), [AniSkip](https://github.com/aniskip), and [Anime Skip](https://anime-skip.com). Metadata identification uses [TVmaze](https://www.tvmaze.com/api) and [AniList](https://anilist.co). SkipDB data is licensed under [ODbL 1.0 + Service Provider Reciprocity](https://skipdb.tv/license); the extension uses individual read-only lookups and does not build a database from these results. See the [catalog comparison and integration requirements](docs/CATALOGS.md). Free API access does not imply unrestricted database redistribution.
 
 [Roadmap](docs/ROADMAP.md) · [Architecture](docs/ARCHITECTURE.md) · [Privacy](docs/PRIVACY.md) · [MIT license](LICENSE)

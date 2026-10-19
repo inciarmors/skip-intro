@@ -8,22 +8,24 @@ const valid = { imdb_id: episode.imdbId, media_type: "tv", is_movie: false, seas
 const secondary = { tmdb_id: 5920, type: "tv", season: 1, episode: 2, intro: [{ start_ms: null, end_ms: 16000 }] };
 function harness(primary = { data: valid }, fallback = { status: 404 }, skipdb = { status: 404 }, aniskip = { status: 404 }) {
   let listener, storageListener;
-  const state = { episode, enabled: true, calls: [], session: {}, primary, fallback, skipdb, aniskip };
+  const state = { episode, enabled: true, calls: [], session: {}, primary, fallback, skipdb, aniskip, animeSkip: { status: 404 }, anilist: { status: 404 }, frames: null, contexts: {}, frameId: 1, query: null, tvmaze: { status: 404 } };
   const browser = {
     runtime: { id: "extension", onMessage: { addListener(fn) { listener = fn; } } },
     storage: { local: { get: async () => ({ enabled: state.enabled }) }, session: { get: async () => state.session, set: async value => Object.assign(state.session, value) }, onChanged: { addListener(fn) { storageListener = fn; } } },
-    tabs: { sendMessage: async () => ({ episode: state.episode, route: "https://watch.example/episode" }), get: async () => ({ title: "Example S1:E2" }) }
+    webNavigation: { getAllFrames: async () => state.frames },
+    tabs: { sendMessage: async (_tabId, _message, options) => state.frames ? state.contexts[options.frameId] || null : ({ episode: state.episode, query: state.query, route: "https://watch.example/episode" }), get: async () => ({ title: "Example S1:E2" }) }
   };
   const context = vm.createContext({ browser, URL, URLSearchParams, AbortController, setTimeout, clearTimeout, fetch: async (url, options) => {
     state.calls.push({ url, options });
-    const config = { "api.introdb.app": state.primary, "api.theintrodb.org": state.fallback, "api.skipdb.tv": state.skipdb, "api.aniskip.com": state.aniskip }[new URL(url).hostname];
+    const configured = { "api.introdb.app": state.primary, "api.theintrodb.org": state.fallback, "api.skipdb.tv": state.skipdb, "api.aniskip.com": state.aniskip, "api.tvmaze.com": state.tvmaze, "graphql.anilist.co": state.anilist, "api.anime-skip.com": state.animeSkip }[new URL(url).hostname];
+    const config = typeof configured === "function" ? configured(options) : configured;
     assert.ok(config, "Only known catalog hosts may be contacted");
     if (config.wait) await config.wait(options.signal);
     const status = config.status || 200;
     return { ok: status === 200, status, headers: { get: name => name === "Retry-After" ? "120" : null }, text: async () => JSON.stringify(config.data) };
   } });
   for (const source of sources) vm.runInContext(source, context);
-  state.send = async message => JSON.parse(JSON.stringify(await new Promise(resolve => listener(message, { id: "extension", tab: { id: 1 }, frameId: 1 }, resolve))));
+  state.send = async message => JSON.parse(JSON.stringify(await new Promise(resolve => listener(message, { id: "extension", tab: { id: 1 }, frameId: state.frameId }, resolve))));
   state.lookup = (local, durationMs) => state.send({ type: "skip-intro:lookup", episode: local, durationMs });
   state.setEnabled = value => { state.enabled = value; storageListener({ enabled: { newValue: value } }, "local"); };
   return state;
@@ -177,4 +179,119 @@ test("a changed MAL mapping invalidates a late result even when the IMDb episode
   state.episode = { ...episode, malId: 1 };
   release();
   assert.equal((await request).status, "waiting");
+});
+
+function nestedFrames(state) {
+  state.frameId = 7;
+  state.frames = [
+    { frameId: 0, parentFrameId: -1, url: "https://listed-site.example/watch" },
+    { frameId: 4, parentFrameId: 0, url: "https://vidlink.pro/tv/5920/1/2" },
+    { frameId: 7, parentFrameId: 4, url: "https://player.example/opaque" },
+    { frameId: 8, parentFrameId: 0, url: "https://vidlink.pro/tv/999/1/3" }
+  ];
+}
+
+test("nested players inherit the actual ancestor identity, ignoring unrelated sibling videos", async () => {
+  const state = harness({ status: 404 }, { data: secondary });
+  nestedFrames(state);
+  const result = await state.lookup(undefined, 2600000);
+  assert.equal(result.provider, "theintrodb");
+  assert.deepEqual(result.episode, { tmdbId: 5920, season: 1, episode: 2 });
+  assert.equal(state.calls.length, 1);
+  assert.equal(new URL(state.calls[0].url).searchParams.get("tmdb_id"), "5920");
+  state.contexts[0] = { episode: { ...episode, tmdbId: 999 }, route: state.frames[0].url };
+  assert.equal((await state.lookup(undefined, 2600000)).status, "missing-identity");
+  assert.equal(state.calls.length, 1);
+});
+
+test("ancestor navigation invalidates a catalog reply received for the old episode", async () => {
+  let entered, release;
+  const started = new Promise(resolve => { entered = resolve; });
+  const waiting = new Promise(resolve => { release = resolve; });
+  const state = harness({ status: 404 }, { data: secondary, wait: async () => { entered(); await waiting; } });
+  nestedFrames(state);
+  const request = state.lookup(undefined, 2600000);
+  await started;
+  state.frames[1].url = "https://vidlink.pro/tv/5920/1/3";
+  release();
+  assert.equal((await request).status, "waiting");
+});
+
+function animeSkipFixture(state) {
+  const id = "81fda5eb-72cd-444f-8fa1-ec5a3c4a12b5";
+  const row = { id, season: null, number: "2", baseDuration: 1500 };
+  state.anilist = { data: { data: { Media: { id: 9253, idMal: 9253 } } } };
+  state.animeSkip = options => JSON.parse(options.body).query.includes("findShowsByExternalId") ? { data: { data: { findShowsByExternalId: [{ externalLinks: [{ service: "anilist.co", serviceId: "9253" }], episodes: [row] }] } } } : { data: { data: { findEpisode: { ...row, timestamps: [{ at: 42, typeId: "14550023-2589-46f0-bfb4-152976506b4c" }, { at: 75, typeId: "canon" }] } } } };
+}
+
+test("Anime Skip uses exact anime mapping and per-episode timestamps after AniSkip misses", async () => {
+  const state = harness();
+  state.episode = { malId: 9253, season: 1, episode: 2 };
+  animeSkipFixture(state);
+  const result = await state.lookup(undefined, 1500000);
+  assert.equal(result.provider, "anime-skip");
+  assert.deepEqual(result.intros, [{ start: 42, end: 75, source: "anime-skip" }]);
+  assert.equal(state.calls.length, 4);
+  for (const call of state.calls.slice(1)) {
+    assert.equal(call.options.method, "POST");
+    assert.equal(call.options.credentials, "omit");
+    assert.ok(!call.options.body.includes("watch.example"));
+  }
+  await state.lookup(undefined, 1500000);
+  assert.equal(state.calls.length, 4);
+});
+
+test("OFF during anime mapping prevents every later GraphQL request", async () => {
+  let entered, release;
+  const started = new Promise(resolve => { entered = resolve; });
+  const waiting = new Promise(resolve => { release = resolve; });
+  const state = harness();
+  state.episode = { malId: 9253, season: 1, episode: 2 };
+  animeSkipFixture(state);
+  state.anilist.wait = async signal => { entered(signal); await waiting; };
+  const request = state.lookup(undefined, 1500000);
+  const signal = await started;
+  state.setEnabled(false);
+  assert.equal(signal.aborted, true);
+  release();
+  assert.equal((await request).status, "disabled");
+  assert.equal(state.calls.length, 2);
+});
+
+test("unknown sites with an explicit episode title can resolve an IMDb identity through TVmaze", async () => {
+  const state = harness();
+  state.episode = null;
+  state.query = { title: "The Mentalist", season: 1, episode: 2 };
+  state.tvmaze = { data: [{ show: { name: "The Mentalist", externals: { imdb: episode.imdbId } } }] };
+  assert.equal((await state.lookup()).provider, "introdb");
+  assert.equal(state.calls[0].url, "https://api.tvmaze.com/search/shows?q=The+Mentalist");
+  await state.lookup();
+  assert.equal(state.calls.length, 2);
+});
+
+test("ambiguous TVmaze names never reach timing providers", async () => {
+  const state = harness();
+  state.episode = null;
+  state.query = { title: "The Mentalist", season: 1, episode: 2 };
+  const show = { name: "The Mentalist", externals: { imdb: episode.imdbId } };
+  state.tvmaze = { data: [{ show }, { show }] };
+  assert.equal((await state.lookup()).status, "missing-identity");
+  assert.equal(state.calls.length, 1);
+});
+
+test("OFF during show-name resolution aborts lookup before any timestamp catalog is contacted", async () => {
+  let entered, release;
+  const started = new Promise(resolve => { entered = resolve; });
+  const waiting = new Promise(resolve => { release = resolve; });
+  const state = harness();
+  state.episode = null;
+  state.query = { title: "The Mentalist", season: 1, episode: 2 };
+  state.tvmaze = { data: [{ show: { name: "The Mentalist", externals: { imdb: episode.imdbId } } }], wait: async signal => { entered(signal); await waiting; } };
+  const request = state.lookup();
+  const signal = await started;
+  state.setEnabled(false);
+  assert.equal(signal.aborted, true);
+  release();
+  assert.equal((await request).status, "disabled");
+  assert.equal(state.calls.length, 1);
 });

@@ -1,10 +1,11 @@
 {
   "manifest_version": 3,
   "name": "Skip Intro",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Skip intros with free episode catalogs, player signals, and live browser fingerprints. No video downloads or AI.",
   "permissions": [
-    "storage"
+    "storage",
+    "webNavigation"
   ],
   "host_permissions": [
     "http://*/*",

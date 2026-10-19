@@ -21,7 +21,7 @@
   }
   api.runtime.onMessage.addListener((message, _sender, respond) => {
     if (message?.type !== "skip-intro:page-context") return false;
-    respond({ episode: enabled ? readEpisode() : null, route: location.href });
+    respond({ episode: enabled ? readEpisode() : null, query: enabled ? episodes.titleQuery(document.title) : null, route: location.href });
     return false;
   });
   function stop() {
@@ -31,12 +31,12 @@
     if (!enabled) return;
     if (!next) { if (video) stop(); return; }
     const episode = readEpisode();
-    const id = `${location.href}|${document.title}|${next.currentSrc}|${next.duration}|${episodes.key(episode)}`;
+    const id = `${location.href}|${document.title}|${next.currentSrc}|${next.duration}|${episodes.signature(episode)}`;
     if (video !== next || identity !== id) { stop(); video = next; identity = id; }
     if (pending || Date.now() - lastRead < 2000) return;
     pending = true; lastRead = Date.now();
     const current = generation;
-    api.runtime.sendMessage({ type: "skip-intro:lookup", episode, durationMs: Math.round(next.duration * 1000) }).then(value => {
+    api.runtime.sendMessage({ type: "skip-intro:lookup", episode, query: episodes.titleQuery(document.title), durationMs: Math.round(next.duration * 1000) }).then(value => {
       if (current !== generation) return;
       result = value; lastReply = Date.now();
     }).catch(() => { if (current === generation) result = null; }).finally(() => { if (current === generation) pending = false; });

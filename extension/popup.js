@@ -4,7 +4,7 @@ const state = document.getElementById("state");
 const status = document.getElementById("status");
 const catalogStatus = document.getElementById("catalog-status");
 let pollTimer = null, statusRevision = 0;
-const providerNames = { introdb: "IntroDB", theintrodb: "TheIntroDB", skipdb: "SkipDB", aniskip: "AniSkip" };
+const providerNames = { introdb: "IntroDB", theintrodb: "TheIntroDB", skipdb: "SkipDB", aniskip: "AniSkip", "anime-skip": "Anime Skip" };
 const catalogMessages = {
   ready: "Timing available. The button appears during the intro when the player can seek.",
   "not-found": "No intro timing was found in the available catalogs. Player signals and local learning remain available.",

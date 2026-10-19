@@ -98,3 +98,60 @@ test("AniSkip preserves seconds and requires an opening with a matching playback
   assert.throws(() => parse({ ...data, results: [{ ...item, interval: { startTime: -1, endTime: 90 } }] }, episode, 1418624));
   assert.throws(() => parse({ results: [] }, episode, 1418624));
 });
+
+test("documented player routes expose IMDb, TMDB, and MAL without assuming arbitrary site IDs", () => {
+  const { fromUrl, merge } = globalThis.SkipIntroEpisode;
+  for (const url of [
+    "https://vidlink.pro/tv/5920/1/2", "https://vixsrc.to/tv/5920/1/2/",
+    "https://vidfast.vc/tv/5920/1/2", "https://www.vidking.net/embed/tv/5920/1/2",
+    "https://vidsrc.sh/embed/tv/5920/1-2", "https://vidsrc.to/embed/tv/5920/1/2",
+    "https://flixer.gd/watch/tv/5920/1/2", "https://example.org/watch?tmdb_id=5920&season=1&episode=2"
+  ]) assert.deepEqual(fromUrl(url), { tmdbId: 5920, season: 1, episode: 2 });
+  assert.deepEqual(fromUrl("https://vixsrc.to/tv/tt1196946/1/2"), episode);
+  assert.deepEqual(fromUrl("https://vidlink.pro/anime/9253/1/sub"), { malId: 9253, season: 1, episode: 1 });
+  for (const url of [
+    "https://unknown.example/tv/5920/1/2", "https://vidlink.pro.evil.example/tv/5920/1/2",
+    "https://vidlink.pro/movie/5920", "https://vidsrc.to/embed/tv/5920",
+    "https://example.org/watch?id=5920&season=1&episode=2",
+    "https://example.org/watch?tmdb_id=5920&type=movie&season=1&episode=2",
+    "https://example.org/watch?tmdb_id=5920&season=1&episode=2&episode=3",
+    "https://example.org/watch?tmdb_id=5920&type=tv&type=movie&season=1&episode=2"
+  ]) assert.equal(fromUrl(url), null, url);
+  assert.deepEqual(merge([episode, { tmdbId: 5920, season: 1, episode: 2 }]), { ...episode, tmdbId: 5920 });
+  assert.equal(merge([episode, { ...episode, imdbId: "tt9999999" }]), null);
+});
+
+test("structured data can identify TMDB-only series and AniList seasons", () => {
+  const base = { "@type": "TVEpisode", episodeNumber: 2, partOfSeason: { seasonNumber: 1 } };
+  assert.deepEqual(fromStructuredData({ ...base, partOfSeries: { sameAs: "https://www.themoviedb.org/tv/5920-the-mentalist" } }), { tmdbId: 5920, season: 1, episode: 2 });
+  assert.deepEqual(fromStructuredData({ ...base, partOfSeason: { seasonNumber: 1, sameAs: "https://anilist.co/anime/9253" } }), { anilistId: 9253, season: 1, episode: 2 });
+});
+
+test("Anime Skip requires exact episode, matching edition, and a bounded plain intro", () => {
+  const parse = globalThis.SkipIntroDB.parseAnimeSkip;
+  const id = "81fda5eb-72cd-444f-8fa1-ec5a3c4a12b5";
+  const row = { id, season: "1", number: "2", baseDuration: 1500, timestamps: [
+    { at: 42, typeId: "14550023-2589-46f0-bfb4-152976506b4c" }, { at: 75, typeId: "9edc0037-fa4e-47a7-a29a-d9c43368daa8" }
+  ] };
+  assert.deepEqual(parse({ data: { findEpisode: row } }, id, episode, 1500000), [{ start: 42, end: 75, source: "anime-skip" }]);
+  assert.deepEqual(parse({ data: { findEpisode: { ...row, timestamps: row.timestamps.slice(0, 1) } } }, id, episode, 1500000), []);
+  assert.deepEqual(parse({ data: { findEpisode: { ...row, timestamps: row.timestamps.map(item => ({ ...item, typeId: "cbb42238-d285-4c88-9e91-feab4bb8ae0a" })) } } }, id, episode, 1500000), []);
+  for (const changes of [{ id: "wrong" }, { number: "3" }, { baseDuration: 1600 }, { timestamps: [row.timestamps[0], row.timestamps[0]] }]) {
+    assert.throws(() => parse({ data: { findEpisode: { ...row, ...changes } } }, id, episode, 1500000));
+  }
+});
+
+test("site-independent title identification requires explicit episode numbers and a unique exact show", () => {
+  const { titleQuery, normalizeQuery, parseTVMaze } = globalThis.SkipIntroEpisode;
+  const query = { title: "The Mentalist", season: 1, episode: 2 };
+  for (const title of ["Watch The Mentalist S01E02 Online - Example", "The Mentalist - Season 1 Episode 2", "The Mentalist 1x02"]) assert.deepEqual(titleQuery(title), query);
+  assert.deepEqual(titleQuery("The Mentalist (2008) S1E2"), { ...query, year: 2008 });
+  assert.equal(titleQuery("Watch The Mentalist online"), null);
+  assert.deepEqual(normalizeQuery(query), query);
+  assert.equal(normalizeQuery({ ...query, season: -1 }), null);
+  const show = { name: "The Mentalist", premiered: "2008-09-23", externals: { imdb: "tt1196946" } };
+  assert.deepEqual(parseTVMaze([{ show }], query), episode);
+  assert.equal(parseTVMaze([{ show: { ...show, name: "The Mentalists" } }], query), null);
+  assert.equal(parseTVMaze([{ show }, { show: { ...show, premiered: "2020-01-01" } }], query), null);
+  assert.deepEqual(parseTVMaze([{ show }, { show: { ...show, premiered: "2020-01-01" } }], { ...query, year: 2008 }), episode);
+});
