@@ -1,13 +1,14 @@
 # Site support notes
 
-## FMHY scope in version 0.6
+## FMHY scope in version 0.7
 
-The [FMHY video directory](https://fmhy.net/video) was reviewed on October 19, 2026. It lists independent sites, shared embeds, live channels, and native apps. This extension operates in browser pages with an accessible HTML5 player. Directory membership alone is not a compatibility signal.
+The [FMHY video directory](https://fmhy.net/video) was reviewed on November 2, 2026. It lists independent sites, shared embeds, live channels, and native apps. This extension operates in browser pages with an accessible HTML5 player. Directory membership alone is not a compatibility signal.
 
 The following identity paths are implemented. Route contracts and metadata were inspected; live playback on these sites has not been tested by the project.
 
 | Site or player family | Episode identity path | Evidence |
 | --- | --- | --- |
+| Movy (`movy.sx`, including localized routes) | `/tv/{tmdbId}/{season}/{episode}` plus Next.js `pageProps.details.imdbId` | Public episode HTML inspected November 2; current route supplies episode numbers |
 | StreamingCommunity | Inertia `Titles/Watch` page metadata | Observed page structure |
 | Flixer (`flixer.gd`, `.su`, `.cx`) and Flixor (`flixor.ru`) | `/watch/tv/{tmdbId}/{season}/{episode}` | Public application route definitions inspected October 19 |
 | VidLink | `/tv/{tmdbId}/{season}/{episode}` and `/anime/{malId}/{episode}/{subOrDub}` | [Official documentation](https://vidlink.pro) |
@@ -18,7 +19,7 @@ The following identity paths are implemented. Route contracts and metadata were 
 | Any site embedding these players | Same identity, inherited along the selected player's actual ancestor chain | No parent-domain allowlist required |
 | Any site with canonical URL fields | Explicit `imdb_id`/`imdb`, `tmdb_id`/`tmdb`, `mal_id`, or `anilist_id`, plus `season` and `episode` | Arbitrary numeric `id` is ignored |
 | Any site with episode structured data | JSON-LD `TVEpisode` with canonical series/season links and episode numbers | Generic metadata adapter |
-| Any site with a descriptive episode title | `Show S01E02`, `Show Season 1 Episode 2`, or `Show 1x02` | TVmaze exact-name identification; ambiguous matches rejected |
+| Any site with a descriptive episode title | `Show S01E02`, `Show Season 1 Episode 2`, or `Show 1x02` in titles, headings, or social metadata; also a series heading with selected episode controls | TVmaze exact-name identification; ambiguous matches rejected |
 
 TMDB-only pages can now use TheIntroDB without IMDb. IMDb-only catalogs are skipped until that ID is available. Title search runs only when canonical identity is absent, never to override conflicting IDs. A year such as `(2008)` can disambiguate a remake. Translated names, missing episode numbers, and different numbering schemes may still fail.
 
@@ -26,9 +27,15 @@ Nested frames require the new `webNavigation` permission. Only the requesting pl
 
 ### Still unverified or unsupported
 
-Movy's public title pages were readable but do not establish a complete episode route by themselves. Rive could not be inspected reliably over the available HTTPS connection. Neither is claimed as a dedicated integration. Generic title/metadata or supported embedded-player paths may still work there. Other FMHY sites remain unverified unless they expose one of the contracts above.
+Rive could not be inspected reliably over the available HTTPS connection and is not claimed as a dedicated integration. Generic title/metadata or supported embedded-player paths may still work there. Other FMHY sites remain unverified unless they expose one of the contracts above.
 
 Live TV without a seekable episode, native apps outside the browser, opaque players, missing timings, and protected/inaccessible media remain outside these guarantees. FMHY is not downloaded or consulted at runtime. There is no claim that every listed site works, or that adding a domain alone fixes playback.
+
+## Movy
+
+The user supplied `https://www.movy.sx/tv/1413/1/1?play=true`. Read-only HTML inspection found a generic series tab title, with TMDB 1413 and series IMDb `tt1844624` in `__NEXT_DATA__`. The separate episode IMDb ID `tt2030547` must not be sent to series-based timing catalogs. Version 0.7 reads the series mapping and season/episode from the current URL, including subsequent episode navigation. A stale payload from another series is rejected. No player script or media was executed during inspection.
+
+IntroDB returned a 432–494 second intro (7:12–8:14) for American Horror Story S1E1 on November 2, 2026. This confirms catalog availability, not alignment with the Movy release; playback testing remains with the user.
 
 ## StreamingCommunity
 

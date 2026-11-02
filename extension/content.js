@@ -238,8 +238,9 @@
     const width = Math.max(196, Math.min(anchor?.width || 196, rect.width - 24));
     const height = Math.max(52, Math.min(anchor?.height || 52, 76));
     host.style.width = `${width}px`; host.style.height = `${height}px`;
-    host.style.left = `${Math.max(8, Math.min(innerWidth - width - 8, (anchor?.right || rect.right - 24) - width))}px`;
-    host.style.top = `${Math.max(8, Math.min(innerHeight - height - 8, (anchor?.top ?? rect.bottom - height - 64) - 16))}px`;
+    const placement = core.buttonPlacement(buttonPosition, rect, { width: innerWidth, height: innerHeight }, { width, height }, anchor);
+    host.style.left = `${placement.left}px`;
+    host.style.top = `${placement.top}px`;
     host.style.display = "block";
   }
 
@@ -258,11 +259,22 @@
     clickTimer = setTimeout(() => { clickTimer = null; busy = false; tick(); }, 400);
   });
 
+  let buttonPosition = core.normalizePosition(), positionRevision = 0;
   api.storage.onChanged.addListener((changes, area) => {
-    if (area !== "local" || !changes.enabled) return;
-    settingsRevision++;
-    setEnabled(changes.enabled.newValue !== false);
+    if (area !== "local") return;
+    if (changes.buttonPosition) {
+      positionRevision++;
+      buttonPosition = core.normalizePosition(changes.buttonPosition.newValue);
+      schedule();
+    }
+    if (changes.enabled) {
+      settingsRevision++;
+      setEnabled(changes.enabled.newValue !== false);
+    }
   });
+  api.storage.local.get("buttonPosition").then(data => {
+    if (!positionRevision) { buttonPosition = core.normalizePosition(data.buttonPosition); schedule(); }
+  }).catch(() => {});
   document.addEventListener("visibilitychange", () => { if (document.hidden) suspend(); else resume(); });
   window.addEventListener("pagehide", suspend);
   window.addEventListener("pageshow", resume);

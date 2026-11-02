@@ -141,3 +141,37 @@ test("OFF removes the overlay and ON rediscovers the current player without a re
   await skip(page).click();
   await expect.poll(() => page.locator("video").evaluate(v => v.currentTime)).toBe(9);
 });
+
+test("position updates immediately without changing intro detection or seeking", async ({ page }) => {
+  await seek(page, 4);
+  await expect(skip(page)).toBeVisible();
+  await page.evaluate(() => browser.storage.local.set({ buttonPosition: { mode: "custom", x: 0, y: 0 } }));
+  await expect.poll(async () => {
+    const video = await page.locator("video").boundingBox(), button = await skip(page).boundingBox();
+    return Math.round(button.y - video.y);
+  }).toBe(12);
+  await page.evaluate(() => browser.storage.local.set({ buttonPosition: { mode: "custom", x: 100, y: 100 } }));
+  await expect.poll(async () => {
+    const video = await page.locator("video").boundingBox(), button = await skip(page).boundingBox();
+    return Math.round(video.y + video.height - button.y - button.height);
+  }).toBe(12);
+  await skip(page).click();
+  await expect.poll(() => page.locator("video").evaluate(v => v.currentTime)).toBe(9);
+  await expect(skip(page)).toBeHidden();
+});
+
+test("popup saves custom placement across reopen and resets to automatic", async ({ page }) => {
+  await page.goto("/popup.html");
+  await page.getByText("Button position", { exact: true }).click();
+  await page.getByLabel("Placement", { exact: true }).selectOption("top-left");
+  await expect(page.locator("#position-status")).toHaveText("Position saved.");
+  await page.locator("#position-x").fill("37");
+  await page.locator("#position-y").fill("62");
+  await expect.poll(() => page.evaluate(async () => (await browser.storage.local.get("buttonPosition")).buttonPosition)).toEqual({ mode: "custom", x: 37, y: 62 });
+  await page.reload();
+  await page.getByText("Button position", { exact: true }).click();
+  await expect(page.locator("#position-x")).toHaveValue("37");
+  await expect(page.locator("#position-y")).toHaveValue("62");
+  await page.getByRole("button", { name: "Reset to automatic" }).click();
+  await expect.poll(() => page.evaluate(async () => (await browser.storage.local.get("buttonPosition")).buttonPosition.mode)).toBe("auto");
+});

@@ -4,6 +4,7 @@ const routes = new Map([
   ["/", ["../demo/index.html", "text/html"]],
   ["/demo.js", ["../demo/demo.js", "text/javascript"]],
   ["/core.js", ["../extension/core.js", "text/javascript"]],
+  ["/episode.js", ["../extension/episode.js", "text/javascript"]],
   ["/content.js", ["../extension/content.js", "text/javascript"]],
   ["/popup.html", ["../extension/popup.html", "text/html"]],
   ["/popup.css", ["../extension/popup.css", "text/css"]],

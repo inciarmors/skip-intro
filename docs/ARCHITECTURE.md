@@ -6,7 +6,7 @@ Manifest V3, with no custom backend, remote scripts, or runtime dependencies. Or
 
 `episode.js` supports explicit IMDb, TMDB, MyAnimeList, and AniList identities with season and episode numbers. It recognizes StreamingCommunity/Inertia metadata, JSON-LD, documented player routes, Flixer watch routes, and explicit namespaced query parameters. Numeric IDs on unknown routes are never assumed to be TMDB. See [site support](SITE-SUPPORT.md) for the maintained contracts.
 
-When canonical identity is missing, titles such as `Show S01E02`, `Show Season 1 Episode 2`, or `Show 1x02` provide a bounded search candidate. TVmaze's free search API receives only the extracted show name. Results must contain exactly one normalized exact name, also matching the premiere year when supplied. Similar names and ambiguous remakes are rejected. A bare show title without episode numbers causes no search.
+When canonical identity is missing, titles such as `Show S01E02`, `Show Season 1 Episode 2`, or `Show 1x02` provide a bounded search candidate. TVmaze's free search API receives only the extracted show name. Results must contain exactly one normalized exact name, also matching the premiere year when supplied. Similar names and ambiguous remakes are rejected. A bare show title without episode numbers causes no search. The DOM reader also checks visible primary headings, social title metadata, explicitly selected episode controls, and named season/episode dropdowns or URL parameters. It never scans the entire episode list or screenshots. Conflicting titles or numbers are rejected. Changes to the extracted query invalidate pending content-script results. Movy uses its observed Next.js payload for the series IMDb mapping and its live TMDB episode URL for current numbers; the episode-specific IMDb ID is ignored.
 
 The background reads only the requesting player's ancestor chain, up to twelve frames, with `webNavigation.getAllFrames` and extension messages. Sibling players never supply identity. Ancestor URL, document ID when available, and content-script context are compared again after asynchronous lookups; a changed chain invalidates the result. Complementary IDs can be combined within this chain, while contradictory IDs or episode numbers are rejected. Explicit ID conflicts never fall back to title search.
 
@@ -58,7 +58,7 @@ These are conservative heuristics, not a semantic classifier. Similar recaps, re
 
 ## Persistence
 
-`storage.local` holds `enabled` and `fingerprints:v1:<series-hash>`. A series record contains up to four sampled episodes, four learned templates, and an update timestamp. At most twelve series are retained. Episode and series identities are SHA-256 hashes; raw URLs/titles are not saved. Hashing is not anonymization.
+`storage.local` holds `enabled`, `buttonPosition` (automatic/custom plus horizontal and vertical percentages), and `fingerprints:v1:<series-hash>`. A series record contains up to four sampled episodes, four learned templates, and an update timestamp. At most twelve series are retained. Episode and series identities are SHA-256 hashes; raw URLs/titles are not saved. Hashing is not anonymization.
 
 Legacy `intro:` records from version 0.1 are removed automatically and never consulted by detection. There is no UI for entering start/end times. Disabling detection releases capture resources; uninstalling removes extension storage.
 
@@ -82,3 +82,7 @@ The Chrome background is a service worker; Firefox manages background lifetime t
 The content controller starts its polling interval and DOM/player observers only when enabled and visible. OFF cancels intervals, animation frames, and click cooldowns; disconnects observers and player/scroll/resize listeners; restores text-track modes; stops analysis and catalog state; and removes the overlay. Visibility changes suspend and resume active detection. BFCache page transitions are handled through pagehide/pageshow.
 
 The analyser starts its sampling interval only after establishing a series matcher and stops it in `stop()`. Audio resume listeners and captured tracks are released as well. The popup stops status polling while OFF. Lightweight settings, visibility, and runtime listeners remain to support reactivation. The browser ultimately controls whether the background context is unloaded, and a connected debugger may keep it alive.
+
+## Button placement
+
+Automatic placement preserves the native-control anchor or the raised lower-right default. Custom placement interpolates within the visible player rectangle, reserving space for the full button and clamping it to the frame viewport. Resize, scrolling, fullscreen changes, and storage changes recompute placement. Popup controls offer corners, independent percentage sliders, a preview, and reset. Storage writes are serialized and coalesced to keep the latest slider value; initialization cannot overwrite a newer storage event. Placement never changes detection, timing, or click behavior.

@@ -37,3 +37,19 @@ test("seeking is only possible within an active intro and available range", () =
   assert.equal(seekTarget(intro, 5, 1800, [[0, 1800]]), null);
   assert.equal(seekTarget(intro, 30, Infinity, [[0, 1800]]), null);
 });
+
+test("custom placement stays inside the visible player and scales with fullscreen", () => {
+  const { buttonPlacement, normalizePosition } = globalThis.SkipIntroCore;
+  const viewport = { width: 1280, height: 900 }, size = { width: 196, height: 52 };
+  const rect = { left: 100, top: 200, right: 1100, bottom: 700 };
+  assert.deepEqual(buttonPlacement({ mode: "custom", x: 0, y: 0 }, rect, viewport, size), { left: 112, top: 212 });
+  assert.deepEqual(buttonPlacement({ mode: "custom", x: 100, y: 100 }, rect, viewport, size), { left: 892, top: 636 });
+  assert.deepEqual(buttonPlacement({ mode: "custom", x: 50, y: 50 }, rect, viewport, size), { left: 502, top: 424 });
+  const clipped = { left: -100, top: -200, right: 1100, bottom: 700 };
+  assert.deepEqual(buttonPlacement({ mode: "custom", x: 0, y: 0 }, clipped, viewport, size), { left: 8, top: 8 });
+  const fullscreen = { left: 0, top: 0, right: 1280, bottom: 900 };
+  assert.deepEqual(buttonPlacement({ mode: "custom", x: 100, y: 100 }, fullscreen, viewport, size), { left: 1072, top: 836 });
+  assert.deepEqual(normalizePosition({ mode: "custom", x: Infinity, y: -20 }), { mode: "custom", x: 100, y: 0 });
+  assert.deepEqual(buttonPlacement(null, rect, viewport, size), { left: 880, top: 568 });
+  assert.deepEqual(buttonPlacement(null, rect, viewport, size, { right: 1000, top: 600 }), { left: 804, top: 584 });
+});

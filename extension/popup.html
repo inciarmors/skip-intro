@@ -2,7 +2,7 @@
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Skip Intro</title><link rel="stylesheet" href="popup.css"></head>
 <body>
-  <header><svg viewBox="0 0 28 28" aria-hidden="true"><path d="M2 5v18l10-9z M12 5v18l10-9z M23 5h3v18h-3z"/></svg><span>SKIP INTRO</span><small>06</small></header>
+  <header><svg viewBox="0 0 28 28" aria-hidden="true"><path d="M2 5v18l10-9z M12 5v18l10-9z M23 5h3v18h-3z"/></svg><span>SKIP INTRO</span><small>07</small></header>
   <main>
     <p class="eyebrow">LESS WAITING. MORE WATCHING.</p>
     <h1>Straight to<br>the story.</h1>
@@ -12,6 +12,28 @@
       <input id="enabled" type="checkbox" role="switch" disabled>
       <span class="switch" aria-hidden="true"></span>
     </label>
+    <details class="glass position-settings">
+      <summary>Button position</summary>
+      <fieldset id="position-controls" disabled>
+        <label for="position-preset">Placement</label>
+        <select id="position-preset">
+          <option value="auto">Automatic</option>
+          <option value="top-left">Top left</option>
+          <option value="top-right">Top right</option>
+          <option value="bottom-left">Bottom left</option>
+          <option value="bottom-right">Bottom right</option>
+          <option value="custom">Custom</option>
+        </select>
+        <div class="position-preview" aria-hidden="true"><span id="position-marker">⏭ Skip intro</span></div>
+        <label for="position-x">Horizontal <output id="position-x-value" for="position-x">100%</output></label>
+        <input id="position-x" type="range" min="0" max="100" step="1" value="100">
+        <label for="position-y">Vertical <output id="position-y-value" for="position-y">100%</output></label>
+        <input id="position-y" type="range" min="0" max="100" step="1" value="100">
+        <p class="coverage">Left → right · Top → bottom. Moving a slider selects Custom. Saved for all sites, including fullscreen players.</p>
+        <button id="position-reset" type="button">Reset to automatic</button>
+      </fieldset>
+      <p id="position-status" role="status" aria-live="polite"></p>
+    </details>
     <p class="coverage">Five free catalogs, checked when their episode IDs are available. Uses show IDs, episode numbers, and playback duration. TVmaze may receive the show name to identify an episode; AniList maps anime IDs. No account or personal API key needed.</p>
     <p id="catalog-status" class="coverage" role="status" aria-live="polite">Checking catalogs…</p>
     <a class="attribution" href="https://introdb.app" target="_blank" rel="noreferrer">IntroDB ↗</a>
@@ -24,6 +46,7 @@
     <p id="status" role="status" aria-live="polite"></p>
   </main>
   <footer><span>No downloads</span><i></i><span>No AI</span><i></i><span>No setup</span></footer>
+  <script src="core.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

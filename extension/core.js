@@ -71,5 +71,27 @@
     return skipLabel.test(String(text || "").replace(/\s+/g, " ").trim());
   }
 
-  globalThis.SkipIntroCore = Object.freeze({ segment, fromCues, fromStructuredData, active, seekTarget, isSkipLabel });
+  function normalizePosition(value) {
+    const percent = (number, fallback) => typeof number === "number" && Number.isFinite(number) ? Math.min(100, Math.max(0, number)) : fallback;
+    return { mode: value?.mode === "custom" ? "custom" : "auto", x: percent(value?.x, 100), y: percent(value?.y, 100) };
+  }
+
+  function buttonPlacement(position, rect, viewport, size, anchor = null) {
+    const { mode, x, y } = normalizePosition(position);
+    const clamp = (value, min, max) => Math.max(min, Math.min(Math.max(min, max), value));
+    if (mode === "auto") return {
+      left: clamp((anchor?.right || rect.right - 24) - size.width, 8, viewport.width - size.width - 8),
+      top: clamp((anchor?.top ?? rect.bottom - size.height - 64) - 16, 8, viewport.height - size.height - 8)
+    };
+    // Percentages span the visible player area, leaving room for the entire button.
+    const left = Math.max(8, rect.left + 12), top = Math.max(8, rect.top + 12);
+    const right = Math.min(viewport.width - 8, rect.right - 12) - size.width;
+    const bottom = Math.min(viewport.height - 8, rect.bottom - 12) - size.height;
+    return {
+      left: clamp(left + Math.max(0, right - left) * x / 100, 8, viewport.width - size.width - 8),
+      top: clamp(top + Math.max(0, bottom - top) * y / 100, 8, viewport.height - size.height - 8)
+    };
+  }
+
+  globalThis.SkipIntroCore = Object.freeze({ segment, fromCues, fromStructuredData, active, seekTarget, isSkipLabel, normalizePosition, buttonPlacement });
 })();

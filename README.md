@@ -2,7 +2,7 @@
 
 An automatic-only Chrome and Firefox extension with a minimal, monochrome glass button. It appears during a detected opening and skips it when clicked. There are no timing fields, marking controls, or hover panels.
 
-> **0.6.0 / experimental.** Detection uses free IntroDB, TheIntroDB, SkipDB, AniSkip, and Anime Skip APIs, player signals, and deterministic live audio/visual fingerprints. No AI, no extra video downloads, and no saved media files. Coverage is not universal: unfamiliar openings, inaccessible media, and ambiguous sequences may not be recognized. Recurrence is evidence of repeated content, not proof that it is an intro.
+> **0.7.0 / experimental.** Detection uses free IntroDB, TheIntroDB, SkipDB, AniSkip, and Anime Skip APIs, player signals, and deterministic live audio/visual fingerprints. No AI, no extra video downloads, and no saved media files. Coverage is not universal: unfamiliar openings, inaccessible media, and ambiguous sequences may not be recognized. Recurrence is evidence of repeated content, not proof that it is an intro.
 
 ## Detection
 
@@ -10,7 +10,7 @@ The extension tries these sources in order:
 
 1. **Native player controls.** A visible, enabled, explicitly labeled intro button inside the selected player. The extension forwards your click to that control; it does not invent an end time.
 2. **Timed player data.** Intro chapter cues, metadata cues, explicit timing attributes, and Schema.org intro clips tied to the exact media source.
-3. **Catalog timestamps.** Episode identity comes from page metadata, documented player URLs, or an exact, unique TVmaze show-name match when the page title includes season and episode numbers. IMDb, TMDB, MyAnimeList, and AniList identities are supported. The background checks IntroDB, TheIntroDB, and SkipDB in order until it finds an intro, skipping catalogs whose required IDs are unavailable. TMDB-only pages can query TheIntroDB directly. AniSkip is an additional anime fallback when the page explicitly identifies the MyAnimeList season/cour and episode. Anime Skip provides a fifth fallback using exact AniList mappings and a matching release duration. No user account or personal API key is required. Only intro segments are accepted; credits and recaps are never substituted. The popup names the provider that supplied the timing.
+3. **Catalog timestamps.** Episode identity comes from page metadata, documented player URLs, or an exact, unique TVmaze show-name match when page titles, visible headings, social metadata, or explicitly selected episode controls supply the show and episode numbers. IMDb, TMDB, MyAnimeList, and AniList identities are supported. The background checks IntroDB, TheIntroDB, and SkipDB in order until it finds an intro, skipping catalogs whose required IDs are unavailable. TMDB-only pages can query TheIntroDB directly. AniSkip is an additional anime fallback when the page explicitly identifies the MyAnimeList season/cour and episode. Anime Skip provides a fifth fallback using exact AniList mappings and a matching release duration. No user account or personal API key is required. Only intro segments are accepted; credits and recaps are never substituted. The popup shows the recognized episode ID and names the provider that supplied the timing.
 4. **Live recurring sequences.** During normal playback, small visual/audio descriptors are compared with earlier episodes of an identifiable series. Once a sufficiently distinctive sequence has recurred across two different episodes, its pattern can identify a subsequent occurrence.
 
 On a new series without player metadata or a catalog result, the extension must first observe matching openings across episodes. A learned opening typically needs several seconds of matching playback before the button appears. It cannot know the ending of an unseen intro from a single live frame. Silence, black frames, static imagery, pauses, and discontinuous playback are rejected as learning evidence.
@@ -59,6 +59,8 @@ It is not published in the extension stores. Persistent Firefox installation req
 
 Enable **Automatic detection** in the popup, then watch normally. When an actionable intro is detected, **Skip intro** appears over the player. Click it to advance; playback is never skipped without your click. No signal means no overlay. Switching OFF cancels API requests, stops sampling and page polling, disconnects player observers, and removes the button. Switching ON restarts detection without a page reload. The popup reports missing episode identity, missing catalog timings, temporary API failures, or a timing ready to use. After updating, reload the extension and the video page.
 
+Open **Button position** in the popup to choose Automatic, a corner, or a custom position using the Horizontal and Vertical sliders. The preview updates as you move them. Positions are saved locally for all sites and applied immediately, relative to the visible player area, including supported fullscreen containers. **Reset to automatic** restores the default placement. Position settings never create a button outside a detected intro. Native video-only fullscreen still cannot display an HTML overlay.
+
 The design follows a black-and-white palette with a frosted white button, dark icon, subtle glass surfaces, and reduced-motion support. All project text and interfaces are in English.
 
 ## Background lifecycle
@@ -78,7 +80,7 @@ The manifest includes PNG icons at 16, 32, 48, 96, and 128 pixels, generated fro
 - The inferred end is conservative: the last confirmed matching sample. It may leave a small part of an opening unskipped. Music or visual repetition alone does not establish semantic certainty.
 - Closed shadow roots, browser-internal pages, native video-element fullscreen, and Picture-in-Picture are unsupported. Open shadow roots and fullscreen player containers are handled.
 - A native player may reject a programmatic forwarded click. Small or hidden videos and unseekable ranges do not receive a button.
-- StreamingCommunity watch-page metadata has an adapter for its observed `Titles/Watch` format. Other sites can use supported player URLs, structured data, explicit namespaced URL parameters, or a page title such as `The Mentalist S1E2` that resolves uniquely through TVmaze. Parent frame identity is carried into nested players. See the [FMHY compatibility scope](docs/SITE-SUPPORT.md); this does not certify every listed site.
+- StreamingCommunity watch-page metadata has an adapter for its observed `Titles/Watch` format. Movy episode routes and its Next.js series metadata supply both TMDB and IMDb IDs, with current episode numbers taken from the URL. Other sites can use supported player URLs, structured data, explicit namespaced URL parameters, or a page title such as `The Mentalist S1E2` that resolves uniquely through TVmaze. Parent frame identity is carried into nested players. See the [FMHY compatibility scope](docs/SITE-SUPPORT.md); this does not certify every listed site.
 - Catalog coverage and timing accuracy vary by episode and edition. TheIntroDB uses the player duration as a release-selection hint; it may return its most popular version if no matching release exists. The extension uses the returned boundaries without assuming that different cuts share the same timing.
 - The requested StreamingCommunity domain is an evaluation target, not a certified integration. Live playback validation is left to the user; see [site notes](docs/SITE-SUPPORT.md).
 
@@ -113,7 +115,7 @@ extension/catalog.js      Current player and catalog result binding
 extension/fingerprint.js  Deterministic sequence matcher
 extension/analysis.js     In-browser sampling and bounded fingerprint storage
 extension/content.js      Player discovery, automatic button, and click handling
-extension/popup.*         On/off control, catalog diagnostics, and glass interface
+extension/popup.*         On/off and position controls, catalog diagnostics, and glass interface
 extension/icons/         Skip glyph icons for toolbar and extension management
 demo/                     Synthetic signal lab
 ```

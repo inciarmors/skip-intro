@@ -52,6 +52,53 @@
     const query = titleQuery(`${value.title}${value.year ? ` (${value.year})` : ""} S${value.season}E${value.episode}`);
     return query?.title === value.title && query.season === value.season && query.episode === value.episode && query.year === value.year ? query : null;
   }
+  function readQuery(doc = document, href = location.href) {
+    const clean = value => typeof value === "string" && value.length <= 500 ? value.replace(/\s+/g, " ").trim() : "";
+    const visible = node => !node.closest('[hidden],[inert],[aria-hidden="true"],nav,aside') && node.getClientRects().length > 0 && doc.defaultView.getComputedStyle(node).visibility !== "hidden";
+    const bounded = selector => Array.from(doc.querySelectorAll(selector)).slice(0, 40);
+    const headings = bounded("h1").filter(visible).map(node => clean(node.textContent)).filter(Boolean);
+    const metadata = bounded('meta[property="og:title"],meta[name="twitter:title"]').map(node => clean(node.content)).filter(Boolean);
+    const full = [clean(doc.title), ...headings, ...metadata].map(titleQuery).filter(Boolean);
+    const numbers = { season: [], episode: [] };
+    const add = text => {
+      const indexed = text.match(/^\s*(\d+)x(\d+)\b/i);
+      const pair = titleNumbers(text) || (indexed ? { season: Number(indexed[1]), episode: Number(indexed[2]) } : null);
+      if (pair) { numbers.season.push(pair.season); numbers.episode.push(pair.episode); return; }
+      for (const field of ["season", "episode"]) {
+        const match = text.match(new RegExp(`^${field}\\s+(\\d+)\\b`, "i"));
+        if (match) numbers[field].push(Number(match[1]));
+      }
+    };
+    // Read only explicitly selected controls, never the full episode/recommendation list.
+    for (const node of bounded('[aria-current="true"],[aria-current="page"],[aria-selected="true"]')) {
+      if (visible(node)) add(clean(node.getAttribute("aria-label") || node.textContent));
+    }
+    for (const select of bounded("select")) {
+      if (!visible(select)) continue;
+      const label = [select.getAttribute("aria-label"), select.name, select.id, ...Array.from(select.labels || []).map(node => node.textContent)].join(" ");
+      const fields = ["season", "episode"].filter(field => new RegExp(`\\b${field}\\b`, "i").test(label));
+      if (fields.length !== 1) continue;
+      for (const option of Array.from(select.selectedOptions)) {
+        const text = clean(option.textContent);
+        if (/^\d+$/.test(text)) numbers[fields[0]].push(Number(text));
+        else add(text);
+      }
+    }
+    try {
+      const params = new URL(href).searchParams;
+      for (const field of ["season", "episode"]) for (const value of params.getAll(field)) {
+        if (/^\d+$/.test(value)) numbers[field].push(Number(value));
+      }
+    } catch { /* No usable page URL. */ }
+    for (const query of full) { numbers.season.push(query.season); numbers.episode.push(query.episode); }
+    if (Object.values(numbers).some(values => new Set(values).size !== 1)) return null;
+    const season = numbers.season[0], episode = numbers.episode[0];
+    const candidates = full.length ? full : (headings.length ? headings : metadata).map(name => titleQuery(`${name} S${season}E${episode}`)).filter(Boolean);
+    if (!candidates.length || candidates.some(query => query.season !== season || query.episode !== episode)) return null;
+    // Reject conflicting titles and remakes rather than guessing from search rank.
+    const keys = new Set(candidates.map(query => JSON.stringify([query.title.toLowerCase(), query.year || null])));
+    return keys.size === 1 ? normalizeQuery(candidates[0]) : null;
+  }
   function parseTVMaze(data, query) {
     if (!Array.isArray(data) || data.length > 100) throw new Error("Invalid show search response");
     const nameKey = value => typeof value === "string" ? value.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "") : "";
@@ -114,6 +161,8 @@
     try { url = new URL(href); } catch { return null; }
     if (!["https:", "http:"].includes(url.protocol)) return null;
     const host = url.hostname.replace(/^www\./, "");
+    const movy = host === "movy.sx" && url.pathname.match(/^\/(?:[a-z]{2}(?:-[A-Za-z]{2})?\/)?tv\/(\d+)\/(\d+)\/(\d+)\/?$/);
+    if (movy) return normalize({ tmdbId: movy[1], season: movy[2], episode: movy[3] });
     const flixer = ["flixer.gd", "flixer.su", "flixer.cx", "flixor.ru"].includes(host) && url.pathname.match(/^\/watch\/tv\/(\d+)\/(\d+)\/(\d+)\/?$/);
     if (flixer) return normalize({ tmdbId: flixer[1], season: flixer[2], episode: flixer[3] });
     // Numeric route IDs are interpreted only for documented player contracts.
@@ -154,18 +203,29 @@
     }
     return merge(results);
   }
+  function fromNextData(data, href) {
+    let url;
+    try { url = new URL(href); } catch { return null; }
+    if (url.hostname.replace(/^www\./, "") !== "movy.sx" || data?.page !== "/tv/[...params]") return null;
+    const route = fromUrl(href), props = data.props?.pageProps, details = props?.details;
+    if (!route || details?.mediaType !== "tv" || integer(props.tmdbId) !== route.tmdbId || integer(details.tmdbId) !== route.tmdbId || integer(data.query?.params?.[0]) !== route.tmdbId) return null;
+    // Next's initial payload can outlive episode navigation. Reuse only the
+    // same series mapping, taking current episode numbers from the live URL.
+    // episodeInfo.imdb_id identifies the episode, never the required series.
+    return normalize({ ...route, imdbId: details.imdbId });
+  }
   function readDocument(doc = document, href = location.href) {
     const candidates = [fromUrl(href)];
-    for (const node of doc.querySelectorAll('[data-page],script[type="application/ld+json"]')) {
+    for (const node of doc.querySelectorAll('[data-page],script[type="application/ld+json"],script#__NEXT_DATA__[type="application/json"]')) {
       const raw = node.hasAttribute("data-page") ? node.getAttribute("data-page") : node.textContent;
       if (!raw || raw.length > 1000000) continue;
       try {
         const parsed = JSON.parse(raw);
-        const value = node.hasAttribute("data-page") ? fromPage(parsed, href, doc.title) : fromStructuredData(parsed);
+        const value = node.hasAttribute("data-page") ? fromPage(parsed, href, doc.title) : node.id === "__NEXT_DATA__" ? fromNextData(parsed, href) : fromStructuredData(parsed);
         if (value) candidates.push(value);
       } catch { /* Unrelated page data. */ }
     }
     return merge(candidates);
   }
-  globalThis.SkipIntroEpisode = Object.freeze({ normalize, key, signature, merge, fromUrl, titleNumbers, titleQuery, normalizeQuery, parseTVMaze, fromPage, fromStructuredData, readDocument });
+  globalThis.SkipIntroEpisode = Object.freeze({ normalize, key, signature, merge, fromUrl, titleNumbers, titleQuery, normalizeQuery, readQuery, parseTVMaze, fromPage, fromNextData, fromStructuredData, readDocument });
 })();

@@ -23,6 +23,18 @@ input:disabled + .switch { opacity:.45; }
 #status:empty { display:none; }
 .attribution { display:inline-block; margin-top:12px; color:#c4c4c4; font-size:10px; text-underline-offset:3px; }
 .attribution + .attribution { margin-left:12px; }
+.position-settings { margin-top:12px; border-radius:14px; padding:14px; }
+.position-settings summary { cursor:pointer; font-size:12px; font-weight:550; }
+.position-settings fieldset { border:0; padding:14px 0 0; margin:0; min-width:0; }
+.position-settings label { display:flex; justify-content:space-between; font-size:11px; margin:10px 0 5px; }
+.position-settings select,.position-settings button { width:100%; border:1px solid #ffffff30; border-radius:8px; padding:8px; background:#202020; color:#eee; font:inherit; font-size:11px; }
+.position-settings button { margin-top:12px; cursor:pointer; }
+.position-settings input { width:100%; accent-color:#eee; }
+.position-settings :focus-visible { outline:2px solid #fff; outline-offset:3px; }
+.position-preview { height:110px; margin-top:14px; position:relative; border:1px solid #ffffff20; border-radius:10px; background:radial-gradient(ellipse at top,#ffffff0c,transparent),#080808; }
+#position-marker { position:absolute; width:78px; height:22px; display:grid; place-items:center; border-radius:5px; font-size:9px; background:#fffffff0; color:#080808; box-shadow:0 2px 12px #ffffff15; }
+#position-status { font-size:10px; color:#bbb; margin:8px 0 0; }
+#position-status:empty { display:none; }
 footer { display:flex; gap:10px; align-items:center; justify-content:center; border-top:1px solid #ffffff14; margin-top:31px; padding-top:17px; font-size:9px; color:#999; }
 footer i { width:2px; height:2px; border-radius:50%; background:#666; }
 @media (prefers-reduced-motion:reduce) { .switch,.switch::after { transition:none; } }

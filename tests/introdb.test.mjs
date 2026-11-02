@@ -155,3 +155,20 @@ test("site-independent title identification requires explicit episode numbers an
   assert.equal(parseTVMaze([{ show }, { show: { ...show, premiered: "2020-01-01" } }], query), null);
   assert.deepEqual(parseTVMaze([{ show }, { show: { ...show, premiered: "2020-01-01" } }], { ...query, year: 2008 }), episode);
 });
+
+test("Movy reads the series IMDb mapping and current episode route, never the episode IMDb ID", () => {
+  const { fromNextData, fromUrl } = globalThis.SkipIntroEpisode;
+  const href = "https://www.movy.sx/tv/1413/1/1?play=true";
+  const data = { page: "/tv/[...params]", query: { params: ["1413", "1", "1"] }, props: { pageProps: {
+    tmdbId: "1413", seasonId: "1", episodeId: "1", details: { mediaType: "tv", tmdbId: 1413, imdbId: "tt1844624", episodeInfo: { imdb_id: "tt2030547" } }
+  } } };
+  assert.deepEqual(fromNextData(data, href), { tmdbId: 1413, imdbId: "tt1844624", season: 1, episode: 1 });
+  assert.deepEqual(fromNextData(data, "https://www.movy.sx/tv/1413/2/3?play=true"), { tmdbId: 1413, imdbId: "tt1844624", season: 2, episode: 3 });
+  assert.equal(fromNextData(data, "https://www.movy.sx/tv/1396/1/1"), null);
+  assert.equal(fromNextData(data, "https://unrelated.example/tv/1413/1/1"), null);
+  assert.deepEqual(fromUrl("https://www.movy.sx/fr/tv/1413/1/2"), { tmdbId: 1413, season: 1, episode: 2 });
+  assert.equal(fromUrl("https://www.movy.sx/movie/1413"), null);
+  assert.equal(fromUrl("https://www.movy.sx/tv/1413"), null);
+  delete data.props.pageProps.details.imdbId;
+  assert.equal(fromNextData(data, href).imdbId, undefined);
+});
