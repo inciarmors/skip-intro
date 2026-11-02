@@ -165,8 +165,11 @@ test("popup saves custom placement across reopen and resets to automatic", async
   await page.getByText("Button position", { exact: true }).click();
   await page.getByLabel("Placement", { exact: true }).selectOption("top-left");
   await expect(page.locator("#position-status")).toHaveText("Position saved.");
-  await page.locator("#position-x").fill("37");
-  await page.locator("#position-y").fill("62");
+  for (const [id, value] of [["position-x", "37"], ["position-y", "62"]]) {
+    await page.locator(`#${id}`).evaluate((slider, next) => {
+      slider.value = next; slider.dispatchEvent(new Event("input", { bubbles: true }));
+    }, value);
+  }
   await expect.poll(() => page.evaluate(async () => (await browser.storage.local.get("buttonPosition")).buttonPosition)).toEqual({ mode: "custom", x: 37, y: 62 });
   await page.reload();
   await page.getByText("Button position", { exact: true }).click();
